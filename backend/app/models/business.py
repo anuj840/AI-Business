@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import enum
 import uuid
+from datetime import datetime
 
-from sqlalchemy import JSON, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,6 +49,17 @@ class Business(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     submitted_website_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Provenance for businesses created via the discovery engine (spec
+    # section 8). Null for manually-entered businesses. A full
+    # business_sources table (for multi-source provenance per business) is
+    # deferred until there's a second source worth cross-referencing --
+    # see app/services/discovery/dedup.py.
+    source_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    source_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    discovered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     website: Mapped["Website | None"] = relationship(
         back_populates="business", uselist=False, cascade="all, delete-orphan"

@@ -47,10 +47,18 @@ Key design decisions:
 - **SSRF protection is enforced at the crawler boundary**, not just the API layer,
   and re-checked on every followed link (see `app/services/crawler/ssrf.py`).
 
+## Lead discovery engine
+
+Given a market + industry, `app/services/discovery/` finds real candidate
+businesses via a pluggable `LeadSourceProvider` (currently OpenStreetMap,
+free/keyless), deduplicates against existing businesses, and persists the
+new ones -- without running the (expensive) analysis pipeline on them
+automatically. See `DISCOVERY.md` for the full design and trade-offs.
+
 ## Deferred to later phases (see MASTER PROMPT sections 57–58)
 
 - Multi-tenant auth / organizations
-- Lead discovery engine + pluggable source providers
+- A second (paid/licensed) discovery source alongside OpenStreetMap
 - Redis + Celery/ARQ background workers (pipeline currently runs synchronously
   in-request; `run_full_pipeline()` is already isolated from the request handler
   so moving it into a worker task is a routing change, not a rewrite)

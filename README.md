@@ -7,17 +7,20 @@ human-approved outreach.
 **Current status: vertical slice (Phase 1 proof-of-concept).** Full roadmap in the
 master spec: see [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-## What the vertical slice does
+## What it does
 
-Input: a business name + (optional) website URL.
+**Discovery**: give it a market (country/region/city) + industry, and it finds real
+candidate businesses via OpenStreetMap (free, public data), deduplicates against what's
+already in your database, and adds the new ones — see `DISCOVERY.md`.
 
-Pipeline: `crawl → deterministic analysis → website quality score → lead score →
-opportunity classification → AI-generated audit → AI-generated outreach draft (requires
-human approval before any send)`.
+**Analysis pipeline** (per business, triggered manually): `crawl → deterministic
+analysis → website quality score → lead score → opportunity classification →
+AI-generated audit → AI-generated outreach draft (requires human approval before any
+send)`.
 
 Explicitly **not** included yet (see spec sections 57–58 / ARCHITECTURE.md phases):
-lead discovery engine, campaigns/email sending, multi-tenant auth, background job queue,
-demo website generator, chatbot widget, RAG/pgvector.
+campaigns/email sending, multi-tenant auth, background job queue, demo website
+generator, chatbot widget, RAG/pgvector, a paid/licensed discovery data source.
 
 ## Stack
 
@@ -73,9 +76,14 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:3000`. Dashboard → New Business → fill in name + optional
-website URL → business detail page → **Run Analysis** (takes 30s–2min depending on
-the site and model) → review the AI audit and outreach draft → **Approve Draft**.
+Visit `http://localhost:3000`.
+
+- **Discover** → enter a market (country/region/city) + industry → finds real
+  businesses via OpenStreetMap and adds them to your dashboard.
+- **New Business** → add one manually by name + optional website URL.
+- Either way, open a business's detail page → **Run Analysis** (takes 30s–2min
+  depending on the site and model) → review the AI audit and outreach draft →
+  **Approve Draft**.
 
 ### 4. Docker Compose (alternative)
 

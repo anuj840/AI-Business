@@ -78,6 +78,39 @@ result instead of re-running the pipeline. Use this to render a business's page
 without paying the crawl/AI cost again. Returns `404` if `/analyze` has never
 been run for this business.
 
+## Discovery
+
+### `POST /api/discovery/run`
+
+Finds candidate businesses matching a market + industry via OpenStreetMap,
+deduplicates against existing businesses, and persists the new ones. Does
+**not** run `/analyze` on them -- see `DISCOVERY.md`.
+
+```json
+{
+  "country": "USA",
+  "region": "Texas",
+  "city": "Houston",
+  "industry": "Roofing",
+  "max_results": 20
+}
+```
+
+Returns:
+
+```json
+{
+  "found": 10,
+  "created": 10,
+  "skipped_duplicates": 0,
+  "businesses": [ /* BusinessOut[] */ ],
+  "source_error": null
+}
+```
+
+`source_error` is set (with `businesses: []`) if the data source itself
+failed or was rate-limited -- distinct from a genuine zero-results match.
+
 ## Outreach
 
 ### `GET /api/businesses/{id}/outreach-draft`

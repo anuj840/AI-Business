@@ -14,6 +14,7 @@ businesses
   name, country, region, city, industry, phone, email
   submitted_website_url
   notes
+  source_name, source_ref, discovered_at  -- set for discovery-engine results, null for manual entry
   created_at, updated_at
 
 websites            (1:1 with businesses)

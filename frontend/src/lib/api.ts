@@ -51,6 +51,8 @@ export interface Business {
   email: string | null;
   submitted_website_url: string | null;
   created_at: string;
+  source_name: string | null;
+  discovered_at: string | null;
 }
 
 export interface BusinessCreate {
@@ -129,6 +131,22 @@ export interface OutreachDraftRecord {
   ai_model: string;
 }
 
+export interface DiscoveryRequest {
+  country: string;
+  region?: string;
+  city?: string;
+  industry: string;
+  max_results?: number;
+}
+
+export interface DiscoveryResult {
+  found: number;
+  created: number;
+  skipped_duplicates: number;
+  businesses: Business[];
+  source_error: string | null;
+}
+
 // --- API calls ---
 
 export const api = {
@@ -152,4 +170,9 @@ export const api = {
       `/api/businesses/${id}/outreach-draft/approve`,
       { method: "POST" }
     ),
+  runDiscovery: (payload: DiscoveryRequest) =>
+    request<DiscoveryResult>("/api/discovery/run", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };

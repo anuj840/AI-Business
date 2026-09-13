@@ -32,6 +32,8 @@ class BusinessOut(BaseModel):
     email: str | None
     submitted_website_url: str | None
     created_at: datetime
+    source_name: str | None = None
+    discovered_at: datetime | None = None
 
 
 class PipelineResultOut(BaseModel):
