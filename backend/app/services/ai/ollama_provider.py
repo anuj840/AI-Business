@@ -6,6 +6,8 @@ never hard-coded.
 """
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
@@ -63,29 +65,44 @@ class OllamaProvider(AIProviderInterface):
             reraise=True,
         )
         async def _do_call() -> dict:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                try:
-                    resp = await client.post(
-                        f"{self.base_url}/api/chat",
-                        json={
-                            "model": self.model,
-                            "messages": [
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": user_prompt},
-                            ],
-                            "stream": False,
-                            "options": {
-                                "temperature": temperature,
-                                "num_predict": max_tokens,
+            # httpx's `timeout=` is a per-operation (e.g. per-read) timeout, not
+            # a ceiling on total request duration. Ollama's non-streaming
+            # response only lands after the full generation finishes, and a
+            # small model can occasionally ramble well past num_predict
+            # tokens before hitting a stop condition, appearing to trickle
+            # bytes just often enough to never trip a per-read timeout. Wrap
+            # the whole call in asyncio.wait_for for a real hard deadline.
+            async def _post() -> dict:
+                async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                    try:
+                        resp = await client.post(
+                            f"{self.base_url}/api/chat",
+                            json={
+                                "model": self.model,
+                                "messages": [
+                                    {"role": "system", "content": system_prompt},
+                                    {"role": "user", "content": user_prompt},
+                                ],
+                                "stream": False,
+                                "options": {
+                                    "temperature": temperature,
+                                    "num_predict": max_tokens,
+                                },
                             },
-                        },
-                    )
-                except httpx.TransportError as exc:
-                    raise OllamaUnavailableError(str(exc)) from exc
+                        )
+                    except httpx.TransportError as exc:
+                        raise OllamaUnavailableError(str(exc)) from exc
 
-                if resp.status_code >= 500:
-                    raise OllamaUnavailableError(f"Ollama returned {resp.status_code}")
-                resp.raise_for_status()
-                return resp.json()
+                    if resp.status_code >= 500:
+                        raise OllamaUnavailableError(f"Ollama returned {resp.status_code}")
+                    resp.raise_for_status()
+                    return resp.json()
+
+            try:
+                return await asyncio.wait_for(_post(), timeout=self.timeout_seconds)
+            except asyncio.TimeoutError as exc:
+                raise OllamaUnavailableError(
+                    f"Ollama did not respond within {self.timeout_seconds}s"
+                ) from exc
 
         return await _do_call()
