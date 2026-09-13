@@ -164,8 +164,13 @@ class WebsiteCrawler:
         html = await page.content()
         text = await page.inner_text("body") if await page.query_selector("body") else ""
 
-        meta_description = await page.get_attribute(
-            'meta[name="description"]', "content"
+        # Use query_selector (returns None immediately if absent) rather than
+        # page.get_attribute(selector, ...), which auto-waits the full
+        # navigation timeout for the element to appear and throws if it never
+        # does — most pages simply don't have a meta description at all.
+        meta_description_el = await page.query_selector('meta[name="description"]')
+        meta_description = (
+            await meta_description_el.get_attribute("content") if meta_description_el else None
         )
         has_viewport = await page.query_selector('meta[name="viewport"]') is not None
 
