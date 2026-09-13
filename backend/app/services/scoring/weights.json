@@ -1,0 +1,60 @@
+{
+  "categories": {
+    "technical": {
+      "weight": 15,
+      "checks": {
+        "uses_https": 40,
+        "has_sitemap": 20,
+        "has_robots_txt": 10,
+        "no_http_errors": 30
+      }
+    },
+    "mobile": {
+      "weight": 10,
+      "checks": {
+        "has_viewport_meta": 100
+      }
+    },
+    "seo_basics": {
+      "weight": 15,
+      "checks": {
+        "has_title": 25,
+        "has_meta_description": 25,
+        "has_h1": 25,
+        "has_service_pages": 25
+      }
+    },
+    "trust": {
+      "weight": 15,
+      "checks": {
+        "has_contact_page": 30,
+        "has_phone": 25,
+        "has_email": 20,
+        "has_social_presence": 25
+      }
+    },
+    "conversion": {
+      "weight": 20,
+      "checks": {
+        "has_contact_form": 40,
+        "has_booking_system": 35,
+        "has_location_page": 25
+      }
+    },
+    "automation_readiness": {
+      "weight": 15,
+      "checks": {
+        "has_chat_widget": 60,
+        "has_analytics": 40
+      }
+    },
+    "content": {
+      "weight": 10,
+      "checks": {
+        "pages_crawled_meets_minimum": 100
+      }
+    }
+  },
+  "no_website_penalty_to_website_score": 0,
+  "min_pages_for_full_content_score": 3
+}
