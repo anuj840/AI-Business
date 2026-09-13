@@ -71,6 +71,13 @@ for that business (upsert, not append).
 > `{"job_id": "...", "status": "queued"}` per spec section 39, with no change
 > to the pipeline logic itself.
 
+### `GET /api/businesses/{id}/analysis`
+
+Returns the same `PipelineResultOut` shape as `/analyze`, but reads the persisted
+result instead of re-running the pipeline. Use this to render a business's page
+without paying the crawl/AI cost again. Returns `404` if `/analyze` has never
+been run for this business.
+
 ## Outreach
 
 ### `GET /api/businesses/{id}/outreach-draft`

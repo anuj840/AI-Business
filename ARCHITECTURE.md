@@ -7,8 +7,9 @@ ever justifies it.
 ## Vertical slice (current)
 
 ```
-Client
-  │
+Next.js frontend (frontend/)
+  │  Dashboard, New Business form, Business detail page
+  │  (Run Analysis / Approve Draft)
   ▼
 FastAPI (app/api/routes)
   │

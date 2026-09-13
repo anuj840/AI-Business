@@ -21,10 +21,10 @@ demo website generator, chatbot widget, RAG/pgvector.
 
 ## Stack
 
-- Backend: Python 3.12, FastAPI, SQLAlchemy (async), Alembic, Playwright
+- Backend: Python 3.12+ (also tested on 3.14), FastAPI, SQLAlchemy (async), Alembic, Playwright
 - AI: Ollama (local), pluggable behind `AIProviderInterface` for future OpenAI support
 - Database: PostgreSQL
-- Frontend: not yet built (planned: Next.js + TypeScript + Tailwind)
+- Frontend: Next.js (App Router) + TypeScript + Tailwind CSS
 
 ## Local setup
 
@@ -64,15 +64,30 @@ uvicorn app.main:app --reload
 Visit `http://localhost:8000/docs` for interactive API docs, `/health` and `/ready`
 for health checks.
 
-### 3. Docker Compose (alternative)
+### 3. Frontend
+
+```bash
+cd frontend
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL, defaults to http://localhost:8000
+npm install
+npm run dev
+```
+
+Visit `http://localhost:3000`. Dashboard → New Business → fill in name + optional
+website URL → business detail page → **Run Analysis** (takes 30s–2min depending on
+the site and model) → review the AI audit and outreach draft → **Approve Draft**.
+
+### 4. Docker Compose (alternative)
 
 ```bash
 docker compose up --build
 ```
 
-Brings up Postgres, Ollama, and the backend together.
+Brings up Postgres, Ollama, the backend, and the frontend together.
 
 ## Trying the vertical slice
+
+Either use the frontend (`http://localhost:3000`) or curl the API directly:
 
 ```bash
 # 1. Create a business
@@ -83,7 +98,10 @@ curl -X POST http://localhost:8000/api/businesses \
 # 2. Run the pipeline (crawl -> score -> classify -> AI audit -> outreach draft)
 curl -X POST http://localhost:8000/api/businesses/<id>/analyze
 
-# 3. Review + approve the outreach draft before any send would ever happen
+# 3. Fetch the persisted result later without re-running
+curl http://localhost:8000/api/businesses/<id>/analysis
+
+# 4. Review + approve the outreach draft before any send would ever happen
 curl http://localhost:8000/api/businesses/<id>/outreach-draft
 curl -X POST http://localhost:8000/api/businesses/<id>/outreach-draft/approve
 ```

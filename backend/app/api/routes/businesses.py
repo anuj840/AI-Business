@@ -6,6 +6,7 @@ Vertical-slice scope (spec section 73/74):
   GET  /api/businesses            list businesses
   GET  /api/businesses/{id}       fetch one
   POST /api/businesses/{id}/analyze   run the full crawl->score->audit->outreach pipeline synchronously
+  GET  /api/businesses/{id}/analysis  fetch the persisted result of the last /analyze run
 
 Note: this pipeline runs synchronously in-request for the vertical slice.
 Once Redis/worker infra (spec section 39) is introduced, this endpoint will
@@ -70,6 +71,63 @@ async def get_business(business_id: uuid.UUID, db: AsyncSession = Depends(get_db
     if not business:
         raise HTTPException(status_code=404, detail="Business not found")
     return business
+
+
+@router.get("/{business_id}/analysis", response_model=PipelineResultOut)
+async def get_analysis(business_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Returns the persisted result of the last /analyze run, without
+    re-running the pipeline. 404 if /analyze has never been run for this
+    business."""
+    business = await db.get(Business, business_id)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+
+    website = await db.scalar(select(Website).where(Website.business_id == business.id))
+    opportunity = await db.scalar(select(Opportunity).where(Opportunity.business_id == business.id))
+    lead_score = await db.scalar(select(LeadScore).where(LeadScore.business_id == business.id))
+    audit = await db.scalar(select(Audit).where(Audit.business_id == business.id))
+
+    if not (website and opportunity and lead_score and audit):
+        raise HTTPException(
+            status_code=404,
+            detail="No analysis found for this business yet. Run POST /analyze first.",
+        )
+
+    analysis = await db.scalar(
+        select(WebsiteAnalysis).where(WebsiteAnalysis.website_id == website.id)
+    )
+    outreach_draft = await db.scalar(
+        select(OutreachDraft).where(OutreachDraft.business_id == business.id)
+    )
+
+    return PipelineResultOut(
+        business=BusinessOut.model_validate(business),
+        website_status=website.status.value,
+        pages_crawled=website.pages_crawled,
+        facts=analysis.facts if analysis else {},
+        quality_score={
+            "overall": audit.report.get("website_score", 0),
+            "categories": audit.report.get("category_scores", {}),
+            "reasons": [],
+        },
+        opportunity={
+            "type": opportunity.opportunity_type.value,
+            "confidence": opportunity.confidence,
+            "reasons": opportunity.reasons,
+            "recommended_service": opportunity.recommended_service,
+        },
+        lead_score={"overall": lead_score.overall_score, "reasons": lead_score.reasons},
+        audit=audit.report,
+        outreach_draft={
+            "subject": outreach_draft.subject,
+            "body": outreach_draft.body,
+            "ai_generation_succeeded": True,
+            "ai_model": outreach_draft.ai_model,
+            "requires_human_approval": not outreach_draft.approved,
+        }
+        if outreach_draft
+        else None,
+    )
 
 
 @router.post("/{business_id}/analyze", response_model=PipelineResultOut)
