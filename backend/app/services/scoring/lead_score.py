@@ -49,7 +49,18 @@ def calculate_lead_score(
                 }
             )
 
-    if facts.get("has_phone") or facts.get("has_email"):
+    # "has_phone"/"has_email" come from crawling a website's page text and
+    # are only ever set when a website was actually crawled; "known_phone"/
+    # "known_email" are whatever's already on file for the business
+    # (manual entry or the discovery engine) regardless of website status --
+    # without checking these too, a no-website business could never earn
+    # this bonus even when we already have a working contact channel.
+    if (
+        facts.get("has_phone")
+        or facts.get("has_email")
+        or facts.get("known_phone")
+        or facts.get("known_email")
+    ):
         points += STRONG_CONTACT_BONUS
         reasons.append(
             {"label": "Public business contact available", "points": STRONG_CONTACT_BONUS}

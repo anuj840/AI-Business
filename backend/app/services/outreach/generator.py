@@ -11,7 +11,9 @@ from app.prompts.loader import render_prompt
 from app.schemas.ai_outputs import OutreachAIOutput
 from app.services.ai.service import OUTREACH_SYSTEM_PROMPT, generate_structured
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
+"""v2: shorter target word count and stronger "JSON only" reinforcement to
+reduce generation time and JSON parse-failure retries -- see JOBS.md."""
 
 _FALLBACK_SUBJECT = "Quick observation about {business_name}'s online presence"
 _FALLBACK_BODY = (
@@ -26,7 +28,15 @@ _FALLBACK_BODY = (
 def _summarize_facts(facts: dict) -> str:
     highlights = []
     if facts.get("reachable") is False:
-        return "No confirmed website found."
+        known = []
+        if facts.get("known_phone"):
+            known.append(f"known phone {facts['known_phone']}")
+        if facts.get("known_email"):
+            known.append(f"known email {facts['known_email']}")
+        if facts.get("known_notes"):
+            known.append(facts["known_notes"])
+        base = "No confirmed website found."
+        return f"{base} {'; '.join(known)}" if known else base
     if not facts.get("has_contact_form"):
         highlights.append("no contact form detected")
     if not facts.get("has_booking_system"):
@@ -73,6 +83,15 @@ async def generate_outreach_draft(
         task_type="OUTREACH_DRAFT",
     )
 
+    # No email, no phone, nothing crawled from a site either -- there is
+    # currently no channel to actually deliver this draft through at all.
+    # A draft is still generated (useful once contact info turns up later,
+    # e.g. from a future source or manual entry), but the caller/UI should
+    # tell the human reviewer plainly rather than implying it's ready to go.
+    has_contact_channel = bool(
+        facts.get("has_any_contact_channel") or facts.get("has_email") or facts.get("has_phone")
+    )
+
     if parsed is not None:
         assert isinstance(parsed, OutreachAIOutput)
         return {
@@ -81,6 +100,7 @@ async def generate_outreach_draft(
             "ai_generation_succeeded": True,
             "ai_model": ai_response.model,
             "requires_human_approval": True,
+            "has_contact_channel": has_contact_channel,
         }
 
     return {
@@ -89,4 +109,5 @@ async def generate_outreach_draft(
         "ai_generation_succeeded": False,
         "ai_model": ai_response.model,
         "requires_human_approval": True,
+        "has_contact_channel": has_contact_channel,
     }

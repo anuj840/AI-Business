@@ -54,6 +54,15 @@ Key design decisions:
   in this slice sends anything — sending is deferred to the outreach/email phase.
 - **SSRF protection is enforced at the crawler boundary**, not just the API layer,
   and re-checked on every followed link (see `app/services/crawler/ssrf.py`).
+- **Known contact info is never wasted, even without a website.** A
+  no-website business is never crawled, so it has no `facts` beyond
+  `reachable: false` on its own — but whatever contact info is already on
+  file (phone/email from manual entry or discovery, address from
+  `notes`) is folded into `facts` before the audit/outreach/lead-score
+  steps run, so a lead with a known phone number isn't treated as if
+  nothing is known about it. `OutreachDraft.has_contact_channel` tells the
+  UI plainly when there's genuinely no channel (no phone, no email) to
+  ever act on the draft through, rather than implying one exists.
 
 ## Lead discovery engine
 

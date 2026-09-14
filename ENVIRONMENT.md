@@ -11,8 +11,8 @@ Copy `.env.example` to `.env` and fill in real values for local development.
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server address |
 | `OLLAMA_MODEL` | `llama3.1:8b` | Model tag; must be pulled via `ollama pull <model>` first |
 | `OLLAMA_TEMPERATURE` | `0.2` | Sampling temperature |
-| `OLLAMA_MAX_TOKENS` | `2048` | Max output tokens (`num_predict`) |
-| `OLLAMA_TIMEOUT_SECONDS` | `90` | HTTP timeout per request |
+| `OLLAMA_MAX_TOKENS` | `700` | Max output tokens (`num_predict`) — kept tight since audit/outreach outputs are short; see AI.md |
+| `OLLAMA_TIMEOUT_SECONDS` | `60` | Hard per-attempt timeout (real ceiling via `asyncio.wait_for`, not just httpx's) |
 | `OLLAMA_MAX_RETRIES` | `2` | Retries on transient (5xx/network) failures, exponential backoff |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string for the ARQ job queue |
 | `JOB_MAX_RETRIES` | `1` | ARQ retries per analyze job on an unhandled exception |

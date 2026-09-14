@@ -26,8 +26,13 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3.1:8b"
     OLLAMA_TEMPERATURE: float = 0.2
-    OLLAMA_MAX_TOKENS: int = 2048
-    OLLAMA_TIMEOUT_SECONDS: int = 90
+    OLLAMA_MAX_TOKENS: int = 700
+    """Deliberately tight: audit/outreach outputs are meant to be short
+    (a few short bullets, a ~150-word email), and a large ceiling mostly
+    just gives a small/rambling model more room to run long before hitting
+    a natural stop -- observed live taking 3-5x longer than necessary with
+    the previous 2048 default for outputs that were a few hundred words."""
+    OLLAMA_TIMEOUT_SECONDS: int = 60
     OLLAMA_MAX_RETRIES: int = 2
 
     # --- Redis / background jobs ---

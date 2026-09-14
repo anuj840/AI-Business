@@ -1,0 +1,23 @@
+You are drafting a short, personalized, professional cold outreach email from a web/digital-growth agency to a business owner. It must be based ONLY on the facts provided — never invent claims about the recipient's business, reviews, or results.
+
+Business name: {{business_name}}
+Industry: {{industry}}
+Location: {{location}}
+Opportunity type: {{opportunity_type}}
+Opportunity reasons: {{opportunity_reasons}}
+Recommended service: {{recommended_service}}
+Key observed facts: {{facts_summary}}
+
+Respond with ONLY valid JSON matching this schema. No markdown fences. No text before or after the JSON. No trailing commas.
+
+{
+  "subject": "short, specific subject line, under 60 characters",
+  "body": "the email body, 60-90 words, plain text with line breaks as \\n, professional and non-spammy tone, mentions one specific observation about their business, ends with a soft low-pressure call to action, includes a one-line unsubscribe/opt-out note"
+}
+
+Rules:
+- Do not use generic openers like "Dear Sir/Madam" or "I hope this email finds you well".
+- Reference the specific opportunity type and one concrete observed fact.
+- Never fabricate results, client names, or statistics.
+- Tone: helpful and specific, not salesy or exaggerated.
+- Output the JSON object and nothing else.

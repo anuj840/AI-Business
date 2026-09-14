@@ -20,7 +20,10 @@ from app.prompts.loader import render_prompt
 from app.schemas.ai_outputs import AuditAIOutput
 from app.services.ai.service import AUDIT_SYSTEM_PROMPT, generate_structured
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
+"""v2: tightened output size (exact bullet counts, shorter word limits,
+stronger "JSON only" reinforcement) to reduce generation time and JSON
+parse-failure retries observed with small/local models -- see JOBS.md."""
 
 
 async def generate_audit(
@@ -32,7 +35,9 @@ async def generate_audit(
     quality_score: dict,
     opportunity: dict,
 ) -> dict:
-    fact_items = [{"kind": "FACT", "label": k, "value": v} for k, v in facts.items()]
+    fact_items = [
+        {"kind": "FACT", "label": k, "value": v} for k, v in facts.items() if v is not None
+    ]
 
     user_prompt = render_prompt(
         "audit_generation",

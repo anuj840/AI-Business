@@ -84,6 +84,17 @@ async def run_full_pipeline(business: Business) -> dict:
             website_status = WebsiteStatus.WEBSITE_UNCERTAIN
             quality_score = {"overall": 0, "categories": {}, "reasons": []}
 
+    # Surface what we already know about this business (phone/email/address
+    # from manual entry or the discovery engine) to the audit and outreach
+    # generators. Previously this sat unused on the Business row -- a
+    # no-website business with a known phone/address still got a near-empty
+    # "reachable: false" fact set and an outreach draft with nothing to
+    # actually reference.
+    facts["known_phone"] = business.phone
+    facts["known_email"] = business.email
+    facts["known_notes"] = business.notes
+    facts["has_any_contact_channel"] = bool(business.phone or business.email)
+
     opportunity = classify_opportunity(
         website_status=website_status,
         website_quality=quality_score if website_status == WebsiteStatus.WEBSITE_FOUND else None,

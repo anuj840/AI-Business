@@ -122,6 +122,7 @@ async def get_analysis(business_id: uuid.UUID, db: AsyncSession = Depends(get_db
             "ai_generation_succeeded": True,
             "ai_model": outreach_draft.ai_model,
             "requires_human_approval": not outreach_draft.approved,
+            "has_contact_channel": bool(business.phone or business.email),
         }
         if outreach_draft
         else None,

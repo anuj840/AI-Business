@@ -30,6 +30,7 @@ class BusinessOut(BaseModel):
     industry: str | None
     phone: str | None
     email: str | None
+    notes: str | None = None
     submitted_website_url: str | None
     created_at: datetime
     source_name: str | None = None

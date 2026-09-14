@@ -194,6 +194,14 @@ export default function BusinessDetailPage(props: PageProps<"/businesses/[id]">)
               {business.submitted_website_url}
             </a>
           )}
+          {(business.phone || business.email) && (
+            <p className="mt-1 text-sm text-gray-600">
+              {[business.phone, business.email].filter(Boolean).join(" · ")}
+            </p>
+          )}
+          {business.notes && (
+            <p className="mt-1 text-xs text-gray-400">{business.notes}</p>
+          )}
         </div>
         <button
           onClick={handleAnalyze}
@@ -352,6 +360,14 @@ export default function BusinessDetailPage(props: PageProps<"/businesses/[id]">)
                   {result.outreach_draft.requires_human_approval ? "Pending approval" : "Approved"}
                 </span>
               </div>
+              {!result.outreach_draft.has_contact_channel && (
+                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  No phone or email is on file for this business — there is currently no
+                  channel to actually deliver this draft through. It&apos;s still worth
+                  reviewing in case you find contact info elsewhere, but nothing in this
+                  system can send it yet.
+                </div>
+              )}
               <p className="mt-3 text-sm font-medium text-gray-900">
                 {result.outreach_draft.subject}
               </p>

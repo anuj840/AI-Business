@@ -49,6 +49,7 @@ export interface Business {
   industry: string | null;
   phone: string | null;
   email: string | null;
+  notes: string | null;
   submitted_website_url: string | null;
   created_at: string;
   source_name: string | null;
@@ -97,6 +98,7 @@ export interface OutreachDraft {
   ai_generation_succeeded: boolean;
   ai_model: string;
   requires_human_approval: boolean;
+  has_contact_channel: boolean;
 }
 
 export interface PipelineResult {
