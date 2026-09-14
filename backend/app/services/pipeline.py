@@ -8,6 +8,8 @@ from a background worker instead of a request handler without changes.
 """
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -135,6 +137,21 @@ async def run_full_pipeline(business: Business) -> dict:
     }
 
 
+def _pick_best_email(website_url: str | None, emails_found: list[str]) -> str | None:
+    """Prefers an email on the business's own domain (e.g. info@acme.com for
+    acme.com) over a generic/third-party one (e.g. a booking platform's
+    address) that happened to appear on the page."""
+    if not emails_found:
+        return None
+    if website_url:
+        site_domain = urlparse(website_url).netloc.lower().removeprefix("www.")
+        for email in emails_found:
+            email_domain = email.rsplit("@", 1)[-1].lower().removeprefix("www.")
+            if site_domain and email_domain == site_domain:
+                return email
+    return emails_found[0]
+
+
 async def persist_pipeline_result(db: AsyncSession, business: Business, result: dict) -> None:
     """Upserts Website/WebsiteAnalysis/LeadScore/Opportunity/Audit/OutreachDraft
     for this business. Wrapped in one transaction so a partial failure never
@@ -144,6 +161,19 @@ async def persist_pipeline_result(db: AsyncSession, business: Business, result: 
     worker task -- kept here rather than in a route module so it has no
     dependency on FastAPI.
     """
+    facts = result.get("facts") or {}
+
+    # Backfill Business.email/phone from what the crawl actually found on
+    # the site, if we don't already have one -- these are what outreach
+    # actually contacts, and previously sat unused inside facts/audit.
+    if not business.email:
+        best_email = _pick_best_email(business.submitted_website_url, facts.get("emails_found") or [])
+        if best_email:
+            business.email = best_email
+    if not business.phone and facts.get("phones_found"):
+        business.phone = facts["phones_found"][0]
+    db.add(business)
+
     existing_website = await db.scalar(select(Website).where(Website.business_id == business.id))
     website = existing_website or Website(business_id=business.id)
     website.url = business.submitted_website_url
