@@ -67,6 +67,37 @@ unavailable/rate-limited) -- this is distinguished from a genuine
 zero-matches result so the UI doesn't silently look identical to "no
 businesses found" when the real story is "try again in a minute."
 
+## Getting bulk volume without a paid API or scraping
+
+Two knobs, both free and zero-signup, that multiply how many real
+businesses a single call returns:
+
+1. **Omit `city`.** `DiscoveryCriteria.city` is optional -- if you pass only
+   `country` + `region`, Nominatim geocodes the whole state/region and
+   Overpass searches that entire bounding box. Verified live: one call for
+   `country=USA, region=Colorado, industry=Dental` (no city) returned real
+   dental practices spanning Denver, Lakewood, Parker, and more, in one
+   request.
+2. **List multiple industries, comma-separated.** `industry="Roofing,
+   Plumbing, Electrician"` unions all three into a single Overpass query
+   instead of three separate discovery runs. Each result is tagged with the
+   *specific* category it actually matched (derived from its own OSM tags
+   via `label_from_osm_tags`), not the combined search string -- so a
+   roofer found this way still shows `industry: "Roofer"`, not
+   `"Roofing, Plumbing, Electrician"`.
+
+Verified live: one call for `region=Colorado, industry="Roofing, Plumbing,
+Electrician", max_results=30` returned 30 real businesses (11 roofers, 11
+plumbers, 8 electricians) across multiple Colorado cities in 14.6 seconds.
+`max_results` ceiling raised from 50 to 200 accordingly.
+
+What this does *not* solve: OSM's per-listing detail sparsity (a result
+found this way can still lack phone/email/website if no one tagged it --
+see the trade-offs section above). Volume and per-listing richness are
+separate problems; a licensed provider (Google Places, etc.) would improve
+richness, not volume, and stays a config-swap away behind
+`LeadSourceProvider` whenever that's wanted.
+
 ## Industry matching
 
 OSM has no single "industry" field; businesses are tagged with one of

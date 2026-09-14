@@ -67,3 +67,22 @@ def resolve_tags(industry: str) -> list[tuple[str, str]] | None:
         if label in industry_lower or industry_lower in label:
             return tags
     return None
+
+
+def split_industries(industry_field: str) -> list[str]:
+    """Splits a comma-separated industry field into individual terms,
+    e.g. "Roofing, Plumbing, HVAC" -> ["Roofing", "Plumbing", "HVAC"]."""
+    return [term.strip() for term in industry_field.split(",") if term.strip()]
+
+
+def label_from_osm_tags(tags: dict) -> str | None:
+    """Derives a human-readable category label directly from a result's own
+    OSM tags -- e.g. {"craft": "roofer"} -> "Roofer". Used to tag each
+    discovered business with the specific category it actually matched,
+    which matters once a search can span multiple requested industries at
+    once."""
+    for key in ("craft", "amenity", "shop", "office", "leisure"):
+        value = tags.get(key)
+        if value:
+            return value.replace("_", " ").title()
+    return None

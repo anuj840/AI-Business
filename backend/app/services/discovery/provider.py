@@ -17,6 +17,7 @@ class DiscoveryCriteria:
     region: str | None = None
     city: str | None = None
     industry: str = ""
+    """One or more industries, comma-separated (e.g. "Roofing, Plumbing")."""
     max_results: int = 20
 
 
@@ -29,6 +30,11 @@ class DiscoveredBusiness:
     name: str
     source_name: str
     source_ref: str
+    matched_industry: str | None = None
+    """The specific category this result actually matched (derived from the
+    source's own tag data), distinct from the possibly multi-industry
+    search criteria that produced it -- e.g. a search for "Roofing,
+    Plumbing" should tag each result with whichever one it actually is."""
     website_url: str | None = None
     phone: str | None = None
     email: str | None = None

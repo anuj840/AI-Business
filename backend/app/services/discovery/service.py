@@ -42,7 +42,7 @@ async def run_discovery(db: AsyncSession, criteria: DiscoveryCriteria) -> dict:
             country=candidate.country,
             region=candidate.region,
             city=candidate.city,
-            industry=criteria.industry or None,
+            industry=candidate.matched_industry or criteria.industry or None,
             phone=candidate.phone,
             email=candidate.email,
             submitted_website_url=candidate.website_url,

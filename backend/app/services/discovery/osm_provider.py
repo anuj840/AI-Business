@@ -10,9 +10,11 @@ later" note.
 Respects OSM's usage policy: descriptive User-Agent, a bounded/light query
 (capped result count, single request per discovery run), and the public
 Overpass instance's documented interpreter endpoint. This is a small,
-bounded lookup for one city at a time -- not a bulk-scraping operation
-(spec section 58 explicitly rules out building "huge scraping
-infrastructure" for the MVP).
+bounded lookup -- not a bulk-scraping operation (spec section 58 explicitly
+rules out building "huge scraping infrastructure" for the MVP) -- but the
+bounding box can span an entire region/state (omit `city`) and a single
+call can search several industries at once (comma-separated), both of
+which multiply how many real businesses one free, keyless run returns.
 """
 from __future__ import annotations
 
@@ -20,7 +22,7 @@ import httpx
 
 from app.core.logging import get_logger
 from app.services.discovery.geocode import GeocodeError, geocode_bounding_box
-from app.services.discovery.industry_map import resolve_tags
+from app.services.discovery.industry_map import label_from_osm_tags, resolve_tags, split_industries
 from app.services.discovery.provider import (
     DiscoveredBusiness,
     DiscoveryCriteria,
@@ -62,10 +64,10 @@ class OpenStreetMapProvider(LeadSourceProvider):
             return []
 
         bbox = f"{south},{west},{north},{east}"
-        tags = resolve_tags(criteria.industry)
-        limit = max(1, min(criteria.max_results, 50))
+        industries = split_industries(criteria.industry) or [criteria.industry]
+        limit = max(1, min(criteria.max_results, 200))
 
-        query = self._build_query(bbox=bbox, tags=tags, keyword=criteria.industry, limit=limit)
+        query = self._build_query(bbox=bbox, industries=industries, limit=limit)
 
         try:
             async with httpx.AsyncClient(timeout=30) as client:
@@ -85,26 +87,45 @@ class OpenStreetMapProvider(LeadSourceProvider):
             return []
 
         elements = data.get("elements", [])
-        results = [self._parse_element(el, criteria) for el in elements]
-        return [r for r in results if r is not None][: criteria.max_results]
+        # Same element can match more than one requested industry's clause
+        # (Overpass unions results); dedupe by (type, id) before parsing.
+        seen_refs: set[tuple[str, int]] = set()
+        results = []
+        for el in elements:
+            ref = (el.get("type"), el.get("id"))
+            if ref in seen_refs:
+                continue
+            seen_refs.add(ref)
+            parsed = self._parse_element(el, criteria)
+            if parsed:
+                results.append(parsed)
 
-    def _build_query(
-        self, *, bbox: str, tags: list[tuple[str, str]] | None, keyword: str, limit: int
-    ) -> str:
-        if tags:
-            clauses = "\n".join(
-                f'  node["{k}"="{v}"]({bbox});\n  way["{k}"="{v}"]({bbox});' for k, v in tags
-            )
-        else:
-            # No curated mapping: fall back to a keyword match against the
-            # name tag, restricted to plausible business tag keys so we
-            # don't pull in unrelated points (rivers, admin boundaries...).
-            safe_keyword = keyword.replace('"', "")
-            key_regex = "|".join(FALLBACK_KEYS)
-            clauses = (
-                f'  node["name"~"{safe_keyword}",i][~"^({key_regex})$"~"."]({bbox});\n'
-                f'  way["name"~"{safe_keyword}",i][~"^({key_regex})$"~"."]({bbox});'
-            )
+        return results[: criteria.max_results]
+
+    def _build_query(self, *, bbox: str, industries: list[str], limit: int) -> str:
+        clause_blocks: list[str] = []
+
+        for industry in industries:
+            tags = resolve_tags(industry)
+            if tags:
+                for k, v in tags:
+                    clause_blocks.append(f'  node["{k}"="{v}"]({bbox});')
+                    clause_blocks.append(f'  way["{k}"="{v}"]({bbox});')
+            else:
+                # No curated mapping: fall back to a keyword match against
+                # the name tag, restricted to plausible business tag keys
+                # so we don't pull in unrelated points (rivers, admin
+                # boundaries...).
+                safe_keyword = industry.replace('"', "")
+                key_regex = "|".join(FALLBACK_KEYS)
+                clause_blocks.append(
+                    f'  node["name"~"{safe_keyword}",i][~"^({key_regex})$"~"."]({bbox});'
+                )
+                clause_blocks.append(
+                    f'  way["name"~"{safe_keyword}",i][~"^({key_regex})$"~"."]({bbox});'
+                )
+
+        clauses = "\n".join(clause_blocks)
 
         return f"""[out:json][timeout:25];
 (
@@ -137,6 +158,7 @@ out center tags {limit};
             name=name,
             source_name="openstreetmap",
             source_ref=f"{el.get('type')}/{el.get('id')}",
+            matched_industry=label_from_osm_tags(tags),
             website_url=website,
             phone=phone,
             email=email,

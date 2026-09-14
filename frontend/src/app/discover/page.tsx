@@ -50,9 +50,11 @@ export default function DiscoverPage() {
         <h1 className="text-2xl font-semibold">Discover Businesses</h1>
         <p className="mt-1 text-sm text-gray-500">
           Finds real businesses matching a market + industry via OpenStreetMap (free,
-          public data — no scraping, no private information). Coverage varies by area;
-          for denser results try a specific city rather than just a country.
-          Duplicates already in your database are skipped automatically.
+          public data — no scraping, no private information). Leave city blank to
+          search an entire state/region at once, and list multiple industries
+          comma-separated (e.g. &quot;Roofing, Plumbing, Electrician&quot;) to pull
+          several categories in one run. Duplicates already in your database are
+          skipped automatically.
         </p>
       </div>
 
@@ -93,7 +95,7 @@ export default function DiscoverPage() {
             name="industry"
             required
             className={inputClass}
-            placeholder="Roofing, Dental, Cafe, Plumbing…"
+            placeholder="Roofing  or  Roofing, Plumbing, Electrician"
           />
         </div>
         <div>
@@ -105,7 +107,7 @@ export default function DiscoverPage() {
             name="max_results"
             type="number"
             min={1}
-            max={50}
+            max={200}
             defaultValue={20}
             className={inputClass}
           />

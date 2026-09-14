@@ -9,8 +9,16 @@ class DiscoveryRequest(BaseModel):
     country: str = Field(..., min_length=1)
     region: str | None = None
     city: str | None = None
-    industry: str = Field(..., min_length=1, description="e.g. 'Roofing', 'Dental', 'Cafe'")
-    max_results: int = Field(20, ge=1, le=50)
+    industry: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "One or more industries, comma-separated, e.g. 'Roofing' or "
+            "'Roofing, Plumbing, HVAC'. Omit city to search an entire "
+            "region/state at once for more volume per run."
+        ),
+    )
+    max_results: int = Field(20, ge=1, le=200)
 
 
 class DiscoveryResultOut(BaseModel):

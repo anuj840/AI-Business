@@ -58,6 +58,7 @@ async def test_discover_returns_parsed_businesses():
     assert business.city == "Houston"
     assert business.source_name == "openstreetmap"
     assert business.source_ref == "node/123"
+    assert business.matched_industry == "Roofer"
 
 
 @respx.mock
@@ -90,6 +91,61 @@ async def test_discover_returns_empty_list_when_overpass_unavailable():
     # the public Overpass instance -- a silent [] looked identical to
     # "no businesses matched", which is misleading).
     assert provider.last_error is not None
+
+
+@respx.mock
+async def test_discover_supports_multiple_industries_in_one_call():
+    multi_response = {
+        "elements": [
+            {
+                "type": "node",
+                "id": 200,
+                "lat": 29.75,
+                "lon": -95.36,
+                "tags": {"name": "Ace Roofing", "craft": "roofer"},
+            },
+            {
+                "type": "node",
+                "id": 201,
+                "lat": 29.76,
+                "lon": -95.37,
+                "tags": {"name": "Bright Dental", "amenity": "dentist"},
+            },
+        ]
+    }
+    respx.get(NOMINATIM_URL).mock(return_value=httpx.Response(200, json=NOMINATIM_RESPONSE))
+    respx.post(OVERPASS_URL).mock(return_value=httpx.Response(200, json=multi_response))
+
+    provider = OpenStreetMapProvider()
+    results = await provider.discover(
+        DiscoveryCriteria(country="USA", city="Houston", industry="Roofing, Dental", max_results=10)
+    )
+
+    by_name = {r.name: r for r in results}
+    assert by_name["Ace Roofing"].matched_industry == "Roofer"
+    assert by_name["Bright Dental"].matched_industry == "Dentist"
+
+
+@respx.mock
+async def test_discover_dedupes_elements_matched_by_more_than_one_clause():
+    # A dentist that ALSO happens to sell dental-care products would match
+    # both an amenity=dentist clause and a shop=* clause if both were in
+    # the query; Overpass would return it once per matching clause.
+    dup_response = {
+        "elements": [
+            {"type": "node", "id": 300, "tags": {"name": "Dual Match Dental", "amenity": "dentist"}},
+            {"type": "node", "id": 300, "tags": {"name": "Dual Match Dental", "amenity": "dentist"}},
+        ]
+    }
+    respx.get(NOMINATIM_URL).mock(return_value=httpx.Response(200, json=NOMINATIM_RESPONSE))
+    respx.post(OVERPASS_URL).mock(return_value=httpx.Response(200, json=dup_response))
+
+    provider = OpenStreetMapProvider()
+    results = await provider.discover(
+        DiscoveryCriteria(country="USA", city="Houston", industry="Dental", max_results=10)
+    )
+
+    assert len(results) == 1
 
 
 @respx.mock
