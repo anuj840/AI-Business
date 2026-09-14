@@ -87,3 +87,44 @@ ran — the UI would sit on "Queued…" forever in `npm run dev`, invisible in
 a production build where Strict Mode's double-invoke doesn't happen. This
 is exactly the kind of bug Strict Mode exists to catch, once you notice the
 symptom instead of dismissing it as "must be a backend timing issue."
+
+## Orphaned/zombie job protection
+
+Found live, days into using this: a business's analyze job silently ran
+**on its own, ~4 hours after the business was created**, with no one
+having triggered it. Root cause: repeatedly killing and restarting the
+worker process (e.g. to deploy new code) can leave ARQ's own job
+bookkeeping in Redis inconsistent when a job was in-flight at the moment
+of the kill. A later worker process can then redeliver and re-execute
+that same job — sometimes much later, sometimes more than once. Confirmed
+in the logs: one job was retried with a ~1417-second deferred delay,
+completed once, then **completed again two hours later** re-running the
+whole pipeline a second time unprompted, before eventually corrupting
+into an internal `KeyError` in ARQ's Redis-side state.
+
+Two defenses added to `app/worker/tasks.py`:
+
+1. **Idempotency check.** `analyze_business_task` looks up the `Job` row
+   first; if it's already `COMPLETED`/`FAILED`/`CANCELLED`, the task logs
+   `worker.stale_redelivery_skipped` and returns immediately instead of
+   re-running the pipeline and silently overwriting a business's current
+   analysis with a second, unrequested one.
+2. **Startup sweep.** `_startup` marks any `Job` row still `RUNNING` when
+   a worker process boots as `FAILED` (`"Orphaned: ..."`) — a freshly
+   started worker cannot have any job legitimately still running from
+   itself, so a `RUNNING` row at boot must be left over from a previous
+   process that was killed or crashed mid-job.
+
+Verified live: restarting the worker with a genuinely orphaned `RUNNING`
+job present correctly marked it `FAILED` on startup, and a stale
+redelivery of that exact job arriving seconds later was correctly skipped
+rather than re-executed — both logged (`worker.orphaned_jobs_cleaned_up`,
+`worker.stale_redelivery_skipped`) and confirmed via direct SQL.
+
+**Operational note for local dev**: this mitigates the *symptom* (a
+business's data silently changing from a phantom re-run) but the
+underlying cause — killing a worker mid-job — still wastes whatever work
+was in flight. Prefer letting an in-flight job finish before restarting
+the worker where practical; this isn't a concern in a normal deployment
+where the worker process isn't being restarted every few minutes for
+active development.
