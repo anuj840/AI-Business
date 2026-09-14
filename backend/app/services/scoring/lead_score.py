@@ -13,6 +13,8 @@ from app.models.business import WebsiteStatus
 NO_WEBSITE_BONUS = 25
 STRONG_CONTACT_BONUS = 10
 MULTI_PAGE_PRESENCE_BONUS = 6
+OLD_DOMAIN_BONUS = 15
+OLD_DOMAIN_THRESHOLD_YEARS = 10
 
 
 def calculate_lead_score(
@@ -72,8 +74,30 @@ def calculate_lead_score(
             {"label": "Multiple service/content pages present", "points": MULTI_PAGE_PRESENCE_BONUS}
         )
 
-    if facts.get("has_chat_widget") and facts.get("has_booking_system") and website_quality and website_quality.get("overall", 0) >= 80:
+    domain_age_years = facts.get("domain_age_years")
+    is_old_domain = domain_age_years is not None and domain_age_years >= OLD_DOMAIN_THRESHOLD_YEARS
+    if is_old_domain:
+        # Technical checks alone can't see visual/design staleness -- an old
+        # domain is a real redesign opportunity even on an otherwise-strong
+        # site (see the matching override in the opportunity classifier).
+        points += OLD_DOMAIN_BONUS
+        reasons.append(
+            {
+                "label": f"Domain registered ~{domain_age_years:.0f} years ago — likely due a design refresh",
+                "points": OLD_DOMAIN_BONUS,
+            }
+        )
+
+    if (
+        facts.get("has_chat_widget")
+        and facts.get("has_booking_system")
+        and website_quality
+        and website_quality.get("overall", 0) >= 80
+        and not is_old_domain
+    ):
         # Excellent digital presence — de-prioritize per spec section 62.
+        # Skipped when the domain is old enough to be a redesign opportunity
+        # in its own right regardless of these modern features being present.
         points = min(points, 32)
         reasons.append(
             {"label": "Strong existing digital presence — low priority", "points": 0}

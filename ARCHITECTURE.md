@@ -63,6 +63,13 @@ Key design decisions:
   nothing is known about it. `OutreachDraft.has_contact_channel` tells the
   UI plainly when there's genuinely no channel (no phone, no email) to
   ever act on the draft through, rather than implying one exists.
+- **Domain age catches what technical checks can't.** A site can pass
+  every deterministic check (HTTPS, forms, meta tags) and still look
+  visually dated. `app/services/domain_age/rdap.py` looks up how long a
+  domain has been registered (RDAP, free/official, not scraping); a
+  technically-excellent site with a 10+ year old domain is reclassified
+  from `IGNORE` to `WEBSITE_REDESIGN` instead of being written off as "no
+  opportunity here." See `DOMAIN_AGE.md`.
 
 ## Lead discovery engine
 

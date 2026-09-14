@@ -65,6 +65,40 @@ def test_excellent_existing_site_is_capped_low_priority():
     assert result["overall"] <= 32
 
 
+def test_old_domain_adds_bonus_points():
+    result = calculate_lead_score(
+        website_status=WebsiteStatus.WEBSITE_FOUND,
+        website_quality={"overall": 90, "categories": {}},
+        facts={"domain_age_years": 12.0},
+    )
+    assert any("registered" in r["label"].lower() for r in result["reasons"])
+
+
+def test_old_domain_prevents_low_priority_cap():
+    """Regression: an excellent site with chat+booking widgets was capped
+    at 32 points regardless of anything else (spec section 62's
+    de-prioritization). That's correct for a genuinely current site, but
+    wrong when the domain is old enough to be a real redesign opportunity
+    in its own right -- the cap must not silently override that."""
+    facts_young = {
+        "has_chat_widget": True,
+        "has_booking_system": True,
+        "domain_age_years": 2.0,
+    }
+    facts_old = {**facts_young, "domain_age_years": 12.0}
+    quality = {"overall": 90, "categories": {}}
+
+    young = calculate_lead_score(
+        website_status=WebsiteStatus.WEBSITE_FOUND, website_quality=quality, facts=facts_young
+    )
+    old = calculate_lead_score(
+        website_status=WebsiteStatus.WEBSITE_FOUND, website_quality=quality, facts=facts_old
+    )
+
+    assert young["overall"] <= 32
+    assert old["overall"] > young["overall"]
+
+
 def test_priority_label_boundaries():
     assert priority_label(100) == "HIGH_PRIORITY"
     assert priority_label(85) == "HIGH_PRIORITY"

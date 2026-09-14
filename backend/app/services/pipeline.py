@@ -27,6 +27,7 @@ from app.models.business import (
 from app.services.analysis.deterministic import analyze_crawl
 from app.services.audit.generator import generate_audit
 from app.services.crawler.playwright_crawler import WebsiteCrawler
+from app.services.domain_age.rdap import get_domain_age
 from app.services.opportunity.classifier import classify_opportunity
 from app.services.outreach.generator import generate_outreach_draft
 from app.services.scoring.engine import score_website
@@ -80,6 +81,10 @@ async def run_full_pipeline(business: Business) -> dict:
         if crawl_result.reachable:
             website_status = WebsiteStatus.WEBSITE_FOUND
             quality_score = score_website(facts)
+
+            domain_age = await get_domain_age(website_url)
+            facts["domain_registered_date"] = domain_age["registered_date"]
+            facts["domain_age_years"] = domain_age["age_years"]
         else:
             website_status = WebsiteStatus.WEBSITE_UNCERTAIN
             quality_score = {"overall": 0, "categories": {}, "reasons": []}

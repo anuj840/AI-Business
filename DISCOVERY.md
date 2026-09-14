@@ -6,6 +6,18 @@ persist the new ones. Discovery does **not** run the analysis pipeline
 (crawl + AI) automatically -- that stays a separate, explicit action per
 business, since it's the slow/expensive step (see `ARCHITECTURE.md`).
 
+## International markets
+
+Nothing in `country`/`region`/`city` is US-specific — Nominatim geocodes
+any real place name globally, and Overpass searches OpenStreetMap data
+worldwide, matching the spec's own primary target markets (USA, UK,
+Canada, Australia, UAE, selected Europe). Verified working for UK cities
+during testing. Coverage density (how well an area is mapped) varies more
+by country/category than the mechanism does -- a sparse-result run for one
+city/industry combination is usually a tagging-density gap in that
+specific area (or, during heavy same-session testing, a temporary rate
+limit -- see `source_error`), not a country-support limitation.
+
 ## Data source: OpenStreetMap
 
 Per spec section 74 ("use free/local technology wherever practical") and

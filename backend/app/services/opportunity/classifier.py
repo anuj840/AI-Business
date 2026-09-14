@@ -20,6 +20,16 @@ SERVICE_RECOMMENDATION = {
 }
 
 
+DOMAIN_AGE_REDESIGN_THRESHOLD_YEARS = 10
+"""A domain this old, on a site that otherwise passes every technical/
+functional check, is still a real redesign opportunity -- our deterministic
+checks measure technical health, never visual/design modernity, and a
+decade-plus-old site is very unlikely to look current even when it's
+technically fine (spec's own logic: don't assume every business needs a
+new site, but this is exactly the "existing website, needs a refresh"
+case the spec calls out in section 61)."""
+
+
 def classify_opportunity(
     *, website_status: WebsiteStatus, website_quality: dict | None, facts: dict | None
 ) -> dict:
@@ -37,6 +47,7 @@ def classify_opportunity(
 
     quality = (website_quality or {}).get("overall", 0)
     categories = (website_quality or {}).get("categories", {})
+    domain_age_years = facts.get("domain_age_years")
 
     if quality < 40:
         reasons.append(f"Website quality score is low ({quality}/100).")
@@ -47,6 +58,16 @@ def classify_opportunity(
     seo = categories.get("seo_basics", 0)
 
     if quality >= 80 and conversion >= 70 and automation >= 60:
+        if domain_age_years is not None and domain_age_years >= DOMAIN_AGE_REDESIGN_THRESHOLD_YEARS:
+            # Technical checks alone can't see visual/design staleness --
+            # a domain this old is a real redesign opportunity even though
+            # every functional check passes.
+            reasons.append(
+                f"Technical/functional checks are strong, but the domain was "
+                f"registered ~{domain_age_years:.0f} years ago -- likely due for a "
+                f"visual/design refresh even so."
+            )
+            return _result(OpportunityType.WEBSITE_REDESIGN, 0.6, reasons)
         reasons.append("Strong technical, conversion and automation signals across the site.")
         return _result(OpportunityType.IGNORE, 0.75, reasons)
 

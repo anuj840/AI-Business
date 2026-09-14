@@ -38,3 +38,47 @@ def test_weak_conversion_maps_to_lead_conversion():
         website_status=WebsiteStatus.WEBSITE_FOUND, website_quality=quality, facts={}
     )
     assert result["type"] == OpportunityType.LEAD_CONVERSION
+
+
+def test_excellent_but_old_domain_maps_to_redesign_not_ignore():
+    """Regression: deterministic checks measure technical health, never
+    visual/design staleness -- a site can pass every technical check and
+    still be a decade+ old. Without this override, a technically-excellent
+    old site was classified IGNORE, missing a real opportunity."""
+    quality = {
+        "overall": 90,
+        "categories": {"conversion": 85, "automation_readiness": 80, "seo_basics": 90},
+    }
+    result = classify_opportunity(
+        website_status=WebsiteStatus.WEBSITE_FOUND,
+        website_quality=quality,
+        facts={"domain_age_years": 14.2},
+    )
+    assert result["type"] == OpportunityType.WEBSITE_REDESIGN
+    assert any("14" in r for r in result["reasons"])
+
+
+def test_excellent_and_young_domain_still_maps_to_ignore():
+    quality = {
+        "overall": 90,
+        "categories": {"conversion": 85, "automation_readiness": 80, "seo_basics": 90},
+    }
+    result = classify_opportunity(
+        website_status=WebsiteStatus.WEBSITE_FOUND,
+        website_quality=quality,
+        facts={"domain_age_years": 2.0},
+    )
+    assert result["type"] == OpportunityType.IGNORE
+
+
+def test_excellent_site_with_unknown_domain_age_still_maps_to_ignore():
+    quality = {
+        "overall": 90,
+        "categories": {"conversion": 85, "automation_readiness": 80, "seo_basics": 90},
+    }
+    result = classify_opportunity(
+        website_status=WebsiteStatus.WEBSITE_FOUND,
+        website_quality=quality,
+        facts={"domain_age_years": None},
+    )
+    assert result["type"] == OpportunityType.IGNORE
