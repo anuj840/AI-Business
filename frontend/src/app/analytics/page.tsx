@@ -158,6 +158,7 @@ export default function AnalyticsPage() {
                   <th className="px-4 py-3">Score</th>
                   <th className="px-4 py-3">Priority</th>
                   <th className="px-4 py-3">Opportunity</th>
+                  <th className="px-4 py-3">Domain Age</th>
                   <th className="px-4 py-3">Service</th>
                   <th className="px-4 py-3">Contact</th>
                 </tr>
@@ -182,6 +183,21 @@ export default function AnalyticsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <OpportunityBadge type={deal.opportunity_type} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {deal.domain_age_years != null ? (
+                        <span
+                          className={
+                            deal.domain_age_years >= 10
+                              ? "inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20"
+                              : "text-gray-500"
+                          }
+                        >
+                          {deal.domain_age_years.toFixed(0)}y
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-500">{deal.recommended_service ?? "—"}</td>
                     <td className="px-4 py-3 text-gray-500">

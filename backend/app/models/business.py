@@ -90,6 +90,11 @@ class Website(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     pages_crawled: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Denormalized from facts.domain_age_years (app/services/domain_age/rdap.py)
+    # so the businesses list can show/sort on it cheaply without extracting
+    # it from the WebsiteAnalysis.facts JSON blob on every request.
+    domain_age_years: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     # Raw crawl output kept for re-analysis without re-crawling.
     crawl_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 

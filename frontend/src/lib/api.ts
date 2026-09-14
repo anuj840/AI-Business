@@ -54,6 +54,9 @@ export interface Business {
   created_at: string;
   source_name: string | null;
   discovered_at: string | null;
+  /** Only populated on the list endpoint (GET /api/businesses), which joins
+   * Website; the single-business fetch doesn't include it. */
+  domain_age_years?: number | null;
 }
 
 export interface BusinessCreate {
@@ -183,6 +186,7 @@ export interface HotDeal {
   region: string | null;
   phone: string | null;
   email: string | null;
+  domain_age_years: number | null;
   lead_score: number;
   priority: "HIGH_PRIORITY" | "GOOD" | "MEDIUM" | "LOW";
   opportunity_type: string;

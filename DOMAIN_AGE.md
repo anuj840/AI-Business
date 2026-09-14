@@ -58,6 +58,20 @@ the registry). Fine for the common single-level TLD case (`.com`, `.net`,
 etc.); a real public-suffix-list library would be the fix if this matters
 for a specific market.
 
+## Where it's visible in the UI
+
+- **Business detail page** — a dedicated badge in the status row (amber when
+  ≥10 years: "Domain age: 31 years — due a refresh"), plus the full detail
+  in the Lead Score Breakdown and raw Audit Details.
+- **Dashboard** — a "Domain Age" column, amber-highlighted when ≥10 years,
+  so old-domain leads are visible without opening each business.
+- **Analytics → Hot Deals** — a Domain Age column on the worklist too.
+
+`Website.domain_age_years` is a real column (denormalized from
+`facts.domain_age_years`) so the dashboard/hot-deals lists can show and
+(eventually) sort/filter on it without extracting it from the
+`WebsiteAnalysis.facts` JSON blob on every request.
+
 ## Verified live
 
 Ran a full analysis end-to-end after deploying this: `domain_registered_date`

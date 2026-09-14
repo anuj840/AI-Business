@@ -75,6 +75,7 @@ export default function DashboardPage() {
                 <th className="px-4 py-3">Location</th>
                 <th className="px-4 py-3">Industry</th>
                 <th className="px-4 py-3">Website</th>
+                <th className="px-4 py-3">Domain Age</th>
                 <th className="px-4 py-3">Contact</th>
                 <th className="px-4 py-3">Added</th>
               </tr>
@@ -96,6 +97,26 @@ export default function DashboardPage() {
                   <td className="px-4 py-3 text-gray-500">{b.industry ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-500">
                     {b.submitted_website_url ? "Provided" : "None"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {b.domain_age_years != null ? (
+                      <span
+                        className={
+                          b.domain_age_years >= 10
+                            ? "inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20"
+                            : "text-gray-500"
+                        }
+                        title={
+                          b.domain_age_years >= 10
+                            ? "Old domain — likely due a design refresh"
+                            : undefined
+                        }
+                      >
+                        {b.domain_age_years.toFixed(0)}y
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {b.phone || b.email ? (

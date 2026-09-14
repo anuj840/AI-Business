@@ -294,6 +294,18 @@ export default function BusinessDetailPage(props: PageProps<"/businesses/[id]">)
             <span className="text-sm text-gray-500">
               {result.pages_crawled} page{result.pages_crawled === 1 ? "" : "s"} crawled
             </span>
+            {typeof result.facts.domain_age_years === "number" && (
+              <span
+                className={
+                  result.facts.domain_age_years >= 10
+                    ? "inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20"
+                    : "text-sm text-gray-500"
+                }
+              >
+                Domain age: {result.facts.domain_age_years.toFixed(0)} years
+                {result.facts.domain_age_years >= 10 ? " — due a refresh" : ""}
+              </span>
+            )}
             {result.opportunity.recommended_service && (
               <span className="text-sm text-gray-500">
                 Recommended: <strong>{result.opportunity.recommended_service}</strong>

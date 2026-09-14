@@ -196,6 +196,7 @@ async def persist_pipeline_result(db: AsyncSession, business: Business, result: 
     website.status = result["website_status"]
     website.pages_crawled = result["pages_crawled"]
     website.crawl_data = result["crawl_data"]
+    website.domain_age_years = facts.get("domain_age_years")
     db.add(website)
     await db.flush()
 

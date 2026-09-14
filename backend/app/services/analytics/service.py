@@ -98,10 +98,11 @@ async def get_hot_deals(db: AsyncSession, limit: int = 20) -> list[dict]:
     already approved for outreach (i.e. still actionable) -- sorted by
     lead score descending."""
     stmt = (
-        select(Business, LeadScore, Opportunity, OutreachDraft)
+        select(Business, LeadScore, Opportunity, OutreachDraft, Website.domain_age_years)
         .join(LeadScore, LeadScore.business_id == Business.id)
         .join(Opportunity, Opportunity.business_id == Business.id)
         .outerjoin(OutreachDraft, OutreachDraft.business_id == Business.id)
+        .outerjoin(Website, Website.business_id == Business.id)
         .where(Opportunity.opportunity_type != OpportunityType.IGNORE)
         .where((Business.phone.is_not(None)) | (Business.email.is_not(None)))
         .where((OutreachDraft.approved.is_(False)) | (OutreachDraft.id.is_(None)))
@@ -111,7 +112,7 @@ async def get_hot_deals(db: AsyncSession, limit: int = 20) -> list[dict]:
     rows = await db.execute(stmt)
 
     deals = []
-    for business, lead_score, opportunity, draft in rows.all():
+    for business, lead_score, opportunity, draft, domain_age_years in rows.all():
         deals.append(
             {
                 "business_id": str(business.id),
@@ -120,6 +121,7 @@ async def get_hot_deals(db: AsyncSession, limit: int = 20) -> list[dict]:
                 "region": business.region,
                 "phone": business.phone,
                 "email": business.email,
+                "domain_age_years": domain_age_years,
                 "lead_score": lead_score.overall_score,
                 "priority": priority_label(lead_score.overall_score),
                 "opportunity_type": opportunity.opportunity_type.value,

@@ -37,6 +37,15 @@ class BusinessOut(BaseModel):
     discovered_at: datetime | None = None
 
 
+class BusinessListItemOut(BusinessOut):
+    """BusinessOut plus a couple of fields worth showing at a glance in a
+    list without opening each business -- kept separate from BusinessOut
+    itself since those come from a plain Business row with no Website join
+    (see GET /api/businesses/{id})."""
+
+    domain_age_years: float | None = None
+
+
 class PipelineResultOut(BaseModel):
     business: BusinessOut
     website_status: str
