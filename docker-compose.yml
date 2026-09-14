@@ -22,6 +22,16 @@ services:
     volumes:
       - ollama_data:/root/.ollama
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./backend
@@ -30,10 +40,33 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://ai_business:ai_business@postgres:5432/ai_business
       OLLAMA_BASE_URL: http://ollama:11434
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+
+  worker:
+    build:
+      context: ./backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ai_business:ai_business@postgres:5432/ai_business
+      OLLAMA_BASE_URL: http://ollama:11434
+      REDIS_URL: redis://redis:6379/0
+    command: ["arq", "app.worker.settings.WorkerSettings"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       ollama:
         condition: service_started

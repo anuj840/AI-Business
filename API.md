@@ -45,9 +45,38 @@ Fetch one business.
 
 ### `POST /api/businesses/{id}/analyze`
 
-Runs the full pipeline **synchronously** (crawl → deterministic analysis → website
-quality score → lead score → opportunity classification → AI audit → AI outreach
-draft) and persists every result. Returns the full `PipelineResultOut`:
+Enqueues the pipeline (crawl → deterministic analysis → website quality score →
+lead score → opportunity classification → AI audit → AI outreach draft) as a
+background job (spec section 39) and returns immediately — HTTP `202`:
+
+```json
+{"job_id": "...", "status": "QUEUED"}
+```
+
+The actual work runs in a separate ARQ worker process (`app/worker/`), not this
+request. Poll `GET /api/jobs/{job_id}` until `status` is `COMPLETED`, then fetch
+`GET /api/businesses/{id}/analysis` for the result. See `JOBS.md`.
+
+Re-running `/analyze` re-runs the whole pipeline and overwrites the prior result
+for that business (upsert, not append) once the new job completes.
+
+### `GET /api/jobs/{job_id}`
+
+```json
+{
+  "id": "...", "job_type": "ANALYZE_BUSINESS",
+  "status": "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "RETRYING" | "CANCELLED",
+  "business_id": "...", "started_at": "...", "completed_at": "...",
+  "error": null, "retry_count": 0, "metadata": {"business_name": "..."}
+}
+```
+
+### `GET /api/businesses/{id}/analysis`
+
+Returns the same `PipelineResultOut` shape a completed job produces, reading the
+persisted result rather than re-running anything. Use this to render a
+business's page without paying the crawl/AI cost again. Returns `404` if no
+`/analyze` job has ever completed for this business.
 
 ```json
 {
@@ -62,21 +91,6 @@ draft) and persists every result. Returns the full `PipelineResultOut`:
   "outreach_draft": {"subject": "...", "body": "...", "requires_human_approval": true}
 }
 ```
-
-Re-running `/analyze` re-runs the whole pipeline and overwrites the prior result
-for that business (upsert, not append).
-
-> This endpoint is currently synchronous — a slow crawl/AI call blocks the
-> request. Once the Redis/worker phase lands, this becomes
-> `{"job_id": "...", "status": "queued"}` per spec section 39, with no change
-> to the pipeline logic itself.
-
-### `GET /api/businesses/{id}/analysis`
-
-Returns the same `PipelineResultOut` shape as `/analyze`, but reads the persisted
-result instead of re-running the pipeline. Use this to render a business's page
-without paying the crawl/AI cost again. Returns `404` if `/analyze` has never
-been run for this business.
 
 ## Discovery
 

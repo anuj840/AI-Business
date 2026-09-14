@@ -8,8 +8,20 @@ from a background worker instead of a request handler without changes.
 """
 from __future__ import annotations
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.logging import get_logger
-from app.models.business import Business, WebsiteStatus
+from app.models.business import (
+    Audit,
+    Business,
+    LeadScore,
+    Opportunity,
+    OutreachDraft,
+    Website,
+    WebsiteAnalysis,
+    WebsiteStatus,
+)
 from app.services.analysis.deterministic import analyze_crawl
 from app.services.audit.generator import generate_audit
 from app.services.crawler.playwright_crawler import WebsiteCrawler
@@ -121,3 +133,65 @@ async def run_full_pipeline(business: Business) -> dict:
         "audit": audit,
         "outreach_draft": outreach_draft,
     }
+
+
+async def persist_pipeline_result(db: AsyncSession, business: Business, result: dict) -> None:
+    """Upserts Website/WebsiteAnalysis/LeadScore/Opportunity/Audit/OutreachDraft
+    for this business. Wrapped in one transaction so a partial failure never
+    leaves inconsistent half-written state (spec section 66).
+
+    Shared by both the (legacy) synchronous request path and the background
+    worker task -- kept here rather than in a route module so it has no
+    dependency on FastAPI.
+    """
+    existing_website = await db.scalar(select(Website).where(Website.business_id == business.id))
+    website = existing_website or Website(business_id=business.id)
+    website.url = business.submitted_website_url
+    website.status = result["website_status"]
+    website.pages_crawled = result["pages_crawled"]
+    website.crawl_data = result["crawl_data"]
+    db.add(website)
+    await db.flush()
+
+    existing_analysis = await db.scalar(
+        select(WebsiteAnalysis).where(WebsiteAnalysis.website_id == website.id)
+    )
+    analysis = existing_analysis or WebsiteAnalysis(website_id=website.id)
+    analysis.facts = result["facts"]
+    db.add(analysis)
+
+    existing_score = await db.scalar(select(LeadScore).where(LeadScore.business_id == business.id))
+    lead_score = existing_score or LeadScore(business_id=business.id)
+    lead_score.overall_score = result["lead_score"]["overall"]
+    lead_score.category_scores = result["quality_score"].get("categories", {})
+    lead_score.reasons = result["lead_score"]["reasons"]
+    db.add(lead_score)
+
+    existing_opportunity = await db.scalar(
+        select(Opportunity).where(Opportunity.business_id == business.id)
+    )
+    opportunity = existing_opportunity or Opportunity(business_id=business.id)
+    opportunity.opportunity_type = result["opportunity"]["type"]
+    opportunity.confidence = result["opportunity"]["confidence"]
+    opportunity.reasons = result["opportunity"]["reasons"]
+    opportunity.recommended_service = result["opportunity"]["recommended_service"]
+    db.add(opportunity)
+
+    existing_audit = await db.scalar(select(Audit).where(Audit.business_id == business.id))
+    audit = existing_audit or Audit(business_id=business.id)
+    audit.report = result["audit"]
+    audit.ai_model = result["audit"].get("ai_model")
+    db.add(audit)
+
+    if result["outreach_draft"]:
+        existing_draft = await db.scalar(
+            select(OutreachDraft).where(OutreachDraft.business_id == business.id)
+        )
+        draft = existing_draft or OutreachDraft(business_id=business.id)
+        draft.subject = result["outreach_draft"]["subject"]
+        draft.body = result["outreach_draft"]["body"]
+        draft.ai_model = result["outreach_draft"].get("ai_model")
+        draft.approved = False  # always requires human approval (spec section 29)
+        db.add(draft)
+
+    await db.commit()

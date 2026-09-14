@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     OLLAMA_TIMEOUT_SECONDS: int = 90
     OLLAMA_MAX_RETRIES: int = 2
 
+    # --- Redis / background jobs ---
+    REDIS_URL: str = "redis://localhost:6379/0"
+    JOB_MAX_RETRIES: int = 1
+    JOB_TIMEOUT_SECONDS: int = 600
+    """Hard ceiling per analyze job -- generous because it includes a
+    real Playwright crawl plus two Ollama calls; see AI.md for why the
+    Ollama call itself is already independently bounded."""
+
     # --- Crawler ---
     CRAWLER_MAX_PAGES: int = 8
     CRAWLER_TIMEOUT_MS: int = 20000

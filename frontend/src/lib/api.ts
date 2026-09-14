@@ -139,6 +139,18 @@ export interface DiscoveryRequest {
   max_results?: number;
 }
 
+export interface JobStatus {
+  id: string;
+  job_type: string;
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "RETRYING" | "CANCELLED";
+  business_id: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  error: string | null;
+  retry_count: number;
+  metadata: Record<string, unknown>;
+}
+
 export interface DiscoveryResult {
   found: number;
   created: number;
@@ -158,11 +170,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   analyzeBusiness: (id: string) =>
-    request<PipelineResult>(`/api/businesses/${id}/analyze`, {
+    request<{ job_id: string; status: string }>(`/api/businesses/${id}/analyze`, {
       method: "POST",
     }),
   getAnalysis: (id: string) =>
     request<PipelineResult>(`/api/businesses/${id}/analysis`),
+  getJob: (jobId: string) => request<JobStatus>(`/api/jobs/${jobId}`),
   getOutreachDraft: (id: string) =>
     request<OutreachDraftRecord>(`/api/businesses/${id}/outreach-draft`),
   approveOutreachDraft: (id: string) =>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import {
   api,
   ApiError,
@@ -18,9 +18,23 @@ export default function BusinessDetailPage(props: PageProps<"/businesses/[id]">)
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [jobStatus, setJobStatus] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const unmountedRef = useRef(false);
+
+  useEffect(() => {
+    // Reset on every (re-)mount, not just once: React 18 Strict Mode (dev
+    // only) mounts -> cleans up -> mounts again on startup to surface
+    // exactly this kind of bug. Without resetting here, the first simulated
+    // cleanup would permanently flip this to true and silently stop the
+    // job-status poll loop below before it ever does anything, in dev mode.
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,16 +77,65 @@ export default function BusinessDetailPage(props: PageProps<"/businesses/[id]">)
   async function handleAnalyze() {
     setAnalyzing(true);
     setError(null);
+    setJobStatus("QUEUED");
+
     try {
-      const analysis = await api.analyzeBusiness(id);
-      setResult(analysis);
+      const { job_id } = await api.analyzeBusiness(id);
+      await pollJob(job_id);
     } catch (err) {
       setError(
         err instanceof ApiError
           ? err.message
-          : "Analysis failed unexpectedly. Check the backend logs."
+          : "Could not start analysis. Check the backend logs."
       );
-    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  async function pollJob(jobId: string) {
+    const POLL_INTERVAL_MS = 3000;
+    const MAX_ATTEMPTS = 200; // ~10 minutes ceiling, matches JOB_TIMEOUT_SECONDS
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (unmountedRef.current) return;
+
+      let job;
+      try {
+        job = await api.getJob(jobId);
+      } catch (err) {
+        if (unmountedRef.current) return;
+        setError(err instanceof ApiError ? err.message : "Lost track of the analysis job.");
+        setAnalyzing(false);
+        return;
+      }
+
+      if (unmountedRef.current) return;
+      setJobStatus(job.status);
+
+      if (job.status === "COMPLETED") {
+        try {
+          const analysis = await api.getAnalysis(id);
+          if (!unmountedRef.current) setResult(analysis);
+        } catch (err) {
+          if (!unmountedRef.current) {
+            setError(err instanceof ApiError ? err.message : "Analysis completed but failed to load.");
+          }
+        }
+        if (!unmountedRef.current) setAnalyzing(false);
+        return;
+      }
+
+      if (job.status === "FAILED" || job.status === "CANCELLED") {
+        setError(job.error ?? "Analysis job failed unexpectedly.");
+        setAnalyzing(false);
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    }
+
+    if (!unmountedRef.current) {
+      setError("Analysis is taking much longer than expected. Check back later or retry.");
       setAnalyzing(false);
     }
   }
@@ -137,7 +200,11 @@ export default function BusinessDetailPage(props: PageProps<"/businesses/[id]">)
           disabled={analyzing}
           className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {analyzing ? "Analyzing… (this can take a minute)" : result ? "Re-run Analysis" : "Run Analysis"}
+          {analyzing
+            ? `${jobStatus === "QUEUED" ? "Queued…" : "Analyzing…"} (this can take a minute)`
+            : result
+              ? "Re-run Analysis"
+              : "Run Analysis"}
         </button>
       </div>
 
@@ -154,10 +221,13 @@ export default function BusinessDetailPage(props: PageProps<"/businesses/[id]">)
         </div>
       )}
 
-      {analyzing && !result && (
+      {analyzing && (
         <div className="rounded-md border border-gray-200 bg-white p-10 text-center text-gray-500">
-          Running the pipeline — crawling the site, scoring it, and calling the AI model.
-          This can take 30 seconds to a couple of minutes depending on the site and model.
+          {jobStatus === "QUEUED"
+            ? "Job queued — waiting for a worker to pick it up…"
+            : "Running the pipeline — crawling the site, scoring it, and calling the AI model."}
+          {" "}Stay on this page; it&apos;s polling for completion. (Navigating away stops
+          the polling here, though the job itself keeps running on the server.)
         </div>
       )}
 

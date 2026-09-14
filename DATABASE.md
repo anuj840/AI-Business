@@ -58,6 +58,16 @@ outreach_drafts     (1:1 with businesses)
   subject, body
   approved (bool, default false)  -- human approval gate, spec section 29
   ai_model
+
+jobs                (N:1 with businesses -- one row per /analyze run)
+  id (uuid, pk)
+  job_type          (ANALYZE_BUSINESS)
+  status            (QUEUED | RUNNING | COMPLETED | FAILED | RETRYING | CANCELLED)
+  business_id (fk -> businesses)
+  started_at, completed_at
+  error
+  retry_count
+  job_metadata (json)  -- e.g. {"business_name": "..."} for display without a join
 ```
 
 All child tables cascade-delete with their business.
@@ -74,7 +84,8 @@ alembic upgrade head
 
 Per the phased roadmap: `organizations` / `organization_members` (multi-tenancy),
 `business_contacts` / `business_locations` / `business_sources` (discovery +
-deduplication), `campaigns` / `campaign_recipients` / `outreach_events` /
-`replies` (outreach engine), `customers` / `subscriptions` (billing),
-`ai_requests` / `ai_provider_logs` (cost tracking), `jobs` (background worker
-state), `system_settings`, `audit_logs`.
+multi-source deduplication -- provenance currently lives directly on
+`businesses`, see DISCOVERY.md), `campaigns` / `campaign_recipients` /
+`outreach_events` / `replies` (outreach engine), `customers` / `subscriptions`
+(billing), `ai_requests` / `ai_provider_logs` (cost tracking), `system_settings`,
+`audit_logs`.

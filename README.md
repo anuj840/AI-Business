@@ -27,6 +27,8 @@ generator, chatbot widget, RAG/pgvector, a paid/licensed discovery data source.
 - Backend: Python 3.12+ (also tested on 3.14), FastAPI, SQLAlchemy (async), Alembic, Playwright
 - AI: Ollama (local), pluggable behind `AIProviderInterface` for future OpenAI support
 - Database: PostgreSQL
+- Background jobs: Redis + ARQ — `/analyze` runs as a real background job now, not
+  a blocking request. See `JOBS.md`.
 - Frontend: Next.js (App Router) + TypeScript + Tailwind CSS
 
 ## Local setup
@@ -34,6 +36,7 @@ generator, chatbot widget, RAG/pgvector, a paid/licensed discovery data source.
 ### 1. Prerequisites
 - Python 3.12+
 - PostgreSQL running locally (or via Docker Compose)
+- Redis running locally (or via Docker Compose)
 - [Ollama](https://ollama.com) installed and running, with a model pulled:
   ```
   ollama pull llama3.1:8b
@@ -64,8 +67,15 @@ Run the API:
 uvicorn app.main:app --reload
 ```
 
+**Also run the worker** (in a separate terminal) — without it, `/analyze` jobs
+stay `QUEUED` forever:
+
+```bash
+arq app.worker.settings.WorkerSettings
+```
+
 Visit `http://localhost:8000/docs` for interactive API docs, `/health` and `/ready`
-for health checks.
+for health checks (checks database, Redis, and Ollama connectivity).
 
 ### 3. Frontend
 
@@ -91,7 +101,8 @@ Visit `http://localhost:3000`.
 docker compose up --build
 ```
 
-Brings up Postgres, Ollama, the backend, and the frontend together.
+Brings up Postgres, Redis, Ollama, the backend, the worker, and the frontend
+together.
 
 ## Trying the vertical slice
 
@@ -103,13 +114,17 @@ curl -X POST http://localhost:8000/api/businesses \
   -H "Content-Type: application/json" \
   -d '{"name": "ABC Roofing", "website_url": "https://example.com", "country": "USA", "region": "Texas", "city": "Houston", "industry": "Roofing"}'
 
-# 2. Run the pipeline (crawl -> score -> classify -> AI audit -> outreach draft)
+# 2. Enqueue the pipeline (crawl -> score -> classify -> AI audit -> outreach draft)
 curl -X POST http://localhost:8000/api/businesses/<id>/analyze
+# -> {"job_id": "...", "status": "QUEUED"}
 
-# 3. Fetch the persisted result later without re-running
+# 3. Poll until it's done (needs the worker running — see step 2 in Backend setup)
+curl http://localhost:8000/api/jobs/<job_id>
+
+# 4. Fetch the persisted result once status is COMPLETED
 curl http://localhost:8000/api/businesses/<id>/analysis
 
-# 4. Review + approve the outreach draft before any send would ever happen
+# 5. Review + approve the outreach draft before any send would ever happen
 curl http://localhost:8000/api/businesses/<id>/outreach-draft
 curl -X POST http://localhost:8000/api/businesses/<id>/outreach-draft/approve
 ```

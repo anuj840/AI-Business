@@ -9,6 +9,7 @@ from app.models.business import (
     WebsiteAnalysis,
     WebsiteStatus,
 )
+from app.models.job import Job, JobStatus, JobType
 
 __all__ = [
     "Business",
@@ -20,4 +21,7 @@ __all__ = [
     "WebsiteStatus",
     "Audit",
     "OutreachDraft",
+    "Job",
+    "JobStatus",
+    "JobType",
 ]

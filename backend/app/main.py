@@ -6,10 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api.routes import businesses, discovery, outreach
+from app.api.routes import businesses, discovery, jobs, outreach
 from app.core.config import get_settings
 from app.core.db import engine
 from app.core.logging import configure_logging, get_logger
+from app.core.queue import get_arq_pool
 
 configure_logging()
 logger = get_logger(__name__)
@@ -28,6 +29,7 @@ app.add_middleware(
 app.include_router(businesses.router)
 app.include_router(outreach.router)
 app.include_router(discovery.router)
+app.include_router(jobs.router)
 
 
 @app.get("/health")
@@ -39,7 +41,7 @@ async def health():
 @app.get("/ready")
 async def ready():
     """Readiness check — verifies critical dependencies (spec section 55)."""
-    checks = {"database": False, "ollama": False}
+    checks = {"database": False, "ollama": False, "redis": False}
 
     try:
         async with engine.connect() as conn:
@@ -54,6 +56,13 @@ async def ready():
             checks["ollama"] = resp.status_code == 200
     except Exception as exc:  # noqa: BLE001
         logger.warning("ready.ollama_check_failed", error=str(exc))
+
+    try:
+        pool = await get_arq_pool()
+        await pool.ping()
+        checks["redis"] = True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ready.redis_check_failed", error=str(exc))
 
     all_ok = all(checks.values())
     return {"status": "ok" if all_ok else "degraded", "checks": checks}

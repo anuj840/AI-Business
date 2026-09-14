@@ -14,6 +14,9 @@ Copy `.env.example` to `.env` and fill in real values for local development.
 | `OLLAMA_MAX_TOKENS` | `2048` | Max output tokens (`num_predict`) |
 | `OLLAMA_TIMEOUT_SECONDS` | `90` | HTTP timeout per request |
 | `OLLAMA_MAX_RETRIES` | `2` | Retries on transient (5xx/network) failures, exponential backoff |
+| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string for the ARQ job queue |
+| `JOB_MAX_RETRIES` | `1` | ARQ retries per analyze job on an unhandled exception |
+| `JOB_TIMEOUT_SECONDS` | `600` | Hard ceiling per analyze job (crawl + two AI calls) |
 | `CRAWLER_MAX_PAGES` | `8` | Max pages crawled per website |
 | `CRAWLER_TIMEOUT_MS` | `20000` | Per-page navigation timeout |
 | `JWT_SECRET` | — | Reserved for the auth phase; must be a long random value in production |

@@ -11,8 +11,9 @@ cp .env.example .env   # edit as needed
 docker compose up --build
 ```
 
-Brings up Postgres, Ollama, and the FastAPI backend. First run: pull a model
-into the Ollama container before analyzing anything —
+Brings up Postgres, Redis, Ollama, the FastAPI backend, the ARQ worker, and the
+frontend. First run: pull a model into the Ollama container before analyzing
+anything —
 
 ```bash
 docker compose exec ollama ollama pull llama3.1:8b
@@ -37,5 +38,5 @@ Not yet designed. Will require, at minimum, before any public deployment:
 - Secrets via a real secret manager (not `.env` files)
 - Rate limiting
 - Structured log shipping / monitoring
-- A real background job queue (Redis + worker) so `/analyze` isn't a
-  synchronous, request-blocking call
+- Worker autoscaling / multiple worker replicas for real throughput (today
+  it's one `arq` process — fine for demos, not for concurrent load)

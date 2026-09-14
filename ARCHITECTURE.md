@@ -8,10 +8,16 @@ ever justifies it.
 
 ```
 Next.js frontend (frontend/)
-  │  Dashboard, New Business form, Business detail page
-  │  (Run Analysis / Approve Draft)
+  │  Dashboard, Discover, New Business form, Business detail page
+  │  (Run Analysis polls job status / Approve Draft)
   ▼
 FastAPI (app/api/routes)
+  │  POST /analyze creates a Job row + enqueues it, returns immediately
+  ▼
+Redis (ARQ queue)
+  │
+  ▼
+ARQ worker process (app/worker/) ── runs separately from the API process
   │
   ▼
 Pipeline orchestrator (app/services/pipeline.py)
@@ -26,8 +32,10 @@ Pipeline orchestrator (app/services/pipeline.py)
   └── Outreach draft generator                app/services/outreach/
   │
   ▼
-PostgreSQL (SQLAlchemy async + Alembic)
+PostgreSQL (SQLAlchemy async + Alembic) ── Job row updated to COMPLETED/FAILED
 ```
+
+See `JOBS.md` for the background job design in full.
 
 Key design decisions:
 
@@ -59,9 +67,6 @@ automatically. See `DISCOVERY.md` for the full design and trade-offs.
 
 - Multi-tenant auth / organizations
 - A second (paid/licensed) discovery source alongside OpenStreetMap
-- Redis + Celery/ARQ background workers (pipeline currently runs synchronously
-  in-request; `run_full_pipeline()` is already isolated from the request handler
-  so moving it into a worker task is a routing change, not a rewrite)
 - Campaigns / email sending / follow-up sequences
 - Demo website generator / redesign preview / chatbot widget
 - pgvector / RAG knowledge system
@@ -71,7 +76,8 @@ automatically. See `DISCOVERY.md` for the full design and trade-offs.
 ## Data model (vertical slice)
 
 `Business 1—1 Website 1—1 WebsiteAnalysis`, plus `Business 1—1 {LeadScore, Opportunity,
-Audit, OutreachDraft}`. See `backend/app/models/business.py`. The full spec's
+Audit, OutreachDraft}`, plus `Business 1—N Job` (one job per `/analyze` run). See
+`backend/app/models/business.py` and `backend/app/models/job.py`. The full spec's
 multi-tenant schema (organizations, campaigns, subscriptions, etc.) is intentionally
 not created yet — tables are added when the corresponding feature is built, per the
 "don't blindly create every table" instruction in the spec.
