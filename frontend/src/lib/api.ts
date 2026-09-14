@@ -161,6 +161,36 @@ export interface JobStatus {
   metadata: Record<string, unknown>;
 }
 
+export interface AnalyticsSummary {
+  total_businesses: number;
+  analyzed: number;
+  not_analyzed: number;
+  reachable: number;
+  website_status_breakdown: Record<string, number>;
+  opportunity_breakdown: Record<string, number>;
+  priority_tier_breakdown: Record<string, number>;
+  source_breakdown: Record<string, number>;
+  outreach_drafts_total: number;
+  outreach_drafts_approved: number;
+  jobs_in_progress: number;
+  jobs_failed: number;
+}
+
+export interface HotDeal {
+  business_id: string;
+  name: string;
+  city: string | null;
+  region: string | null;
+  phone: string | null;
+  email: string | null;
+  lead_score: number;
+  priority: "HIGH_PRIORITY" | "GOOD" | "MEDIUM" | "LOW";
+  opportunity_type: string;
+  recommended_service: string | null;
+  has_outreach_draft: boolean;
+  outreach_approved: boolean;
+}
+
 export interface DiscoveryResult {
   found: number;
   created: number;
@@ -202,4 +232,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  getAnalyticsSummary: () => request<AnalyticsSummary>("/api/analytics/summary"),
+  getHotDeals: (limit = 20) =>
+    request<HotDeal[]>(`/api/analytics/hot-deals?limit=${limit}`),
 };

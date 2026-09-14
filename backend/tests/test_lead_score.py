@@ -1,5 +1,5 @@
 from app.models.business import WebsiteStatus
-from app.services.scoring.lead_score import calculate_lead_score
+from app.services.scoring.lead_score import calculate_lead_score, priority_label
 
 
 def test_no_website_business_gets_new_website_bonus():
@@ -63,3 +63,14 @@ def test_excellent_existing_site_is_capped_low_priority():
         facts={"has_chat_widget": True, "has_booking_system": True},
     )
     assert result["overall"] <= 32
+
+
+def test_priority_label_boundaries():
+    assert priority_label(100) == "HIGH_PRIORITY"
+    assert priority_label(85) == "HIGH_PRIORITY"
+    assert priority_label(84) == "GOOD"
+    assert priority_label(65) == "GOOD"
+    assert priority_label(64) == "MEDIUM"
+    assert priority_label(40) == "MEDIUM"
+    assert priority_label(39) == "LOW"
+    assert priority_label(0) == "LOW"

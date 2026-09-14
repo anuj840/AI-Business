@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api.routes import businesses, discovery, jobs, outreach
+from app.api.routes import analytics, businesses, discovery, jobs, outreach
 from app.core.config import get_settings
 from app.core.db import engine
 from app.core.logging import configure_logging, get_logger
@@ -30,6 +30,7 @@ app.include_router(businesses.router)
 app.include_router(outreach.router)
 app.include_router(discovery.router)
 app.include_router(jobs.router)
+app.include_router(analytics.router)
 
 
 @app.get("/health")

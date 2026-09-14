@@ -22,6 +22,13 @@ const KIND_STYLES: Record<string, string> = {
   RECOMMENDATION: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
 };
 
+const PRIORITY_STYLES: Record<string, string> = {
+  HIGH_PRIORITY: "bg-red-50 text-red-700 ring-red-600/20",
+  GOOD: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  MEDIUM: "bg-blue-50 text-blue-700 ring-blue-600/20",
+  LOW: "bg-gray-50 text-gray-500 ring-gray-400/20",
+};
+
 function Badge({
   label,
   className,
@@ -59,5 +66,14 @@ export function WebsiteStatusBadge({ status }: { status: string }) {
 export function AuditItemKindBadge({ kind }: { kind: string }) {
   return (
     <Badge label={kind} className={KIND_STYLES[kind] ?? "bg-gray-50 text-gray-700 ring-gray-600/20"} />
+  );
+}
+
+export function PriorityBadge({ priority }: { priority: string }) {
+  return (
+    <Badge
+      label={priority}
+      className={PRIORITY_STYLES[priority] ?? "bg-gray-50 text-gray-700 ring-gray-600/20"}
+    />
   );
 }
