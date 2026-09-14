@@ -1,9 +1,13 @@
 """Business + pipeline API routes.
 
-  POST /api/businesses            create a business record
+  POST /api/businesses            create a business record (auto-runs a quick
+                                   contact check if a website is given but no
+                                   phone/email is)
   GET  /api/businesses            list businesses
   GET  /api/businesses/{id}       fetch one
-  POST /api/businesses/{id}/analyze   enqueue the pipeline as a background job (spec section 39)
+  POST /api/businesses/{id}/find-contact  fast (~seconds) phone/email-only
+                                   check, no AI -- see CONTACT.md
+  POST /api/businesses/{id}/analyze   enqueue the full pipeline as a background job (spec section 39)
   GET  /api/businesses/{id}/analysis  fetch the persisted result of the last completed run
 
 /analyze returns {"job_id", "status": "queued"} immediately -- the actual
@@ -33,6 +37,7 @@ from app.models.business import (
 )
 from app.models.job import Job, JobType
 from app.schemas.business import BusinessCreate, BusinessOut, PipelineResultOut
+from app.services.contact.finder import quick_contact_check
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/businesses", tags=["businesses"])
@@ -54,7 +59,59 @@ async def create_business(payload: BusinessCreate, db: AsyncSession = Depends(ge
     db.add(business)
     await db.commit()
     await db.refresh(business)
+
+    # Auto contact check: fast (a few seconds), so it's fine to await inline
+    # rather than requiring a separate job. Never blocks creation on failure.
+    if business.submitted_website_url and not (business.phone and business.email):
+        try:
+            found = await quick_contact_check(business.submitted_website_url)
+            if found["reachable"]:
+                business.phone = business.phone or found["phone"]
+                business.email = business.email or found["email"]
+                db.add(business)
+                await db.commit()
+                await db.refresh(business)
+        except Exception as exc:  # noqa: BLE001 - never fail business creation over this
+            logger.warning("business.auto_contact_check_failed", error=str(exc))
+
     return business
+
+
+@router.post("/{business_id}/find-contact")
+async def find_contact(business_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Fast (~seconds), AI-free phone/email-only check -- see CONTACT.md.
+    Updates the business's phone/email if not already set; never overwrites
+    an existing value (same rule as the full pipeline's backfill)."""
+    business = await db.get(Business, business_id)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    if not business.submitted_website_url:
+        raise HTTPException(
+            status_code=400,
+            detail="This business has no website URL, so there's nothing to check.",
+        )
+
+    found = await quick_contact_check(business.submitted_website_url)
+
+    updated = False
+    if not business.phone and found["phone"]:
+        business.phone = found["phone"]
+        updated = True
+    if not business.email and found["email"]:
+        business.email = found["email"]
+        updated = True
+    if updated:
+        db.add(business)
+        await db.commit()
+        await db.refresh(business)
+
+    return {
+        "phone": business.phone,
+        "email": business.email,
+        "reachable": found["reachable"],
+        "pages_checked": found["pages_checked"],
+        "updated": updated,
+    }
 
 
 @router.get("", response_model=list[BusinessOut])

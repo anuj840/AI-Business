@@ -141,6 +141,14 @@ export interface DiscoveryRequest {
   max_results?: number;
 }
 
+export interface FindContactResult {
+  phone: string | null;
+  email: string | null;
+  reachable: boolean;
+  pages_checked: number;
+  updated: boolean;
+}
+
 export interface JobStatus {
   id: string;
   job_type: string;
@@ -170,6 +178,10 @@ export const api = {
     request<Business>("/api/businesses", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  findContact: (id: string) =>
+    request<FindContactResult>(`/api/businesses/${id}/find-contact`, {
+      method: "POST",
     }),
   analyzeBusiness: (id: string) =>
     request<{ job_id: string; status: string }>(`/api/businesses/${id}/analyze`, {

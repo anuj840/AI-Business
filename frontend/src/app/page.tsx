@@ -75,6 +75,7 @@ export default function DashboardPage() {
                 <th className="px-4 py-3">Location</th>
                 <th className="px-4 py-3">Industry</th>
                 <th className="px-4 py-3">Website</th>
+                <th className="px-4 py-3">Contact</th>
                 <th className="px-4 py-3">Added</th>
               </tr>
             </thead>
@@ -95,6 +96,17 @@ export default function DashboardPage() {
                   <td className="px-4 py-3 text-gray-500">{b.industry ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-500">
                     {b.submitted_website_url ? "Provided" : "None"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {b.phone || b.email ? (
+                      <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                        Reachable
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500 ring-1 ring-inset ring-gray-400/20">
+                        No contact
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-400">
                     {new Date(b.created_at).toLocaleDateString()}

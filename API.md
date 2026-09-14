@@ -33,6 +33,10 @@ Create a business record.
 `website_url` is optional — omit it if no website is known; the pipeline will
 classify the business as `NO_WEBSITE_FOUND` / `NEW_WEBSITE` opportunity.
 
+If a website was given but no `phone`/`email`, a fast contact-only check
+runs automatically before the response comes back (see `CONTACT.md`) — a
+few extra seconds, not the full pipeline.
+
 Returns `201` with the created `BusinessOut`.
 
 ### `GET /api/businesses`
@@ -42,6 +46,17 @@ List all businesses, newest first.
 ### `GET /api/businesses/{id}`
 
 Fetch one business.
+
+### `POST /api/businesses/{id}/find-contact`
+
+Fast (a few seconds), AI-free phone/email-only check — crawls up to 2 pages
+of the business's website purely for contact info. See `CONTACT.md`. `400`
+if the business has no website URL. Never overwrites an existing
+phone/email.
+
+```json
+{"phone": "+1 555-0100", "email": "info@example.com", "reachable": true, "pages_checked": 2, "updated": true}
+```
 
 ### `POST /api/businesses/{id}/analyze`
 

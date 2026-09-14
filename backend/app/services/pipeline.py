@@ -148,7 +148,7 @@ async def run_full_pipeline(business: Business) -> dict:
     }
 
 
-def _pick_best_email(website_url: str | None, emails_found: list[str]) -> str | None:
+def pick_best_email(website_url: str | None, emails_found: list[str]) -> str | None:
     """Prefers an email on the business's own domain (e.g. info@acme.com for
     acme.com) over a generic/third-party one (e.g. a booking platform's
     address) that happened to appear on the page."""
@@ -178,7 +178,7 @@ async def persist_pipeline_result(db: AsyncSession, business: Business, result: 
     # the site, if we don't already have one -- these are what outreach
     # actually contacts, and previously sat unused inside facts/audit.
     if not business.email:
-        best_email = _pick_best_email(business.submitted_website_url, facts.get("emails_found") or [])
+        best_email = pick_best_email(business.submitted_website_url, facts.get("emails_found") or [])
         if best_email:
             business.email = best_email
     if not business.phone and facts.get("phones_found"):

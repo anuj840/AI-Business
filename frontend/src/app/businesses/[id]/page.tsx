@@ -20,6 +20,8 @@ export default function BusinessDetailPage(props: PageProps<"/businesses/[id]">)
   const [analyzing, setAnalyzing] = useState(false);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+  const [checkingContact, setCheckingContact] = useState(false);
+  const [contactCheckMessage, setContactCheckMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const unmountedRef = useRef(false);
@@ -156,6 +158,34 @@ export default function BusinessDetailPage(props: PageProps<"/businesses/[id]">)
     }
   }
 
+  async function handleCheckContact() {
+    setCheckingContact(true);
+    setContactCheckMessage(null);
+    setError(null);
+    try {
+      const found = await api.findContact(id);
+      if (!found.reachable) {
+        setContactCheckMessage("Could not reach this business's website.");
+      } else if (found.updated) {
+        setContactCheckMessage(
+          `Found it — ${[found.phone, found.email].filter(Boolean).join(" · ")}`
+        );
+      } else if (found.phone || found.email) {
+        setContactCheckMessage("Already had this business's contact info on file.");
+      } else {
+        setContactCheckMessage(
+          `Checked ${found.pages_checked} page${found.pages_checked === 1 ? "" : "s"} — no phone or email found.`
+        );
+      }
+      const refreshed = await api.getBusiness(id);
+      setBusiness(refreshed);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Contact check failed.");
+    } finally {
+      setCheckingContact(false);
+    }
+  }
+
   if (notFound) {
     return (
       <div className="rounded-md border border-gray-200 bg-white p-8 text-center">
@@ -203,17 +233,33 @@ export default function BusinessDetailPage(props: PageProps<"/businesses/[id]">)
             <p className="mt-1 text-xs text-gray-400">{business.notes}</p>
           )}
         </div>
-        <button
-          onClick={handleAnalyze}
-          disabled={analyzing}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {analyzing
-            ? `${jobStatus === "QUEUED" ? "Queued…" : "Analyzing…"} (this can take a minute)`
-            : result
-              ? "Re-run Analysis"
-              : "Run Analysis"}
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex gap-2">
+            {business.submitted_website_url && (
+              <button
+                onClick={handleCheckContact}
+                disabled={checkingContact}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {checkingContact ? "Checking…" : "Check Contact Info"}
+              </button>
+            )}
+            <button
+              onClick={handleAnalyze}
+              disabled={analyzing}
+              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {analyzing
+                ? `${jobStatus === "QUEUED" ? "Queued…" : "Analyzing…"} (this can take a minute)`
+                : result
+                  ? "Re-run Analysis"
+                  : "Run Analysis"}
+            </button>
+          </div>
+          {contactCheckMessage && (
+            <p className="max-w-xs text-right text-xs text-gray-500">{contactCheckMessage}</p>
+          )}
+        </div>
       </div>
 
       {error && (
