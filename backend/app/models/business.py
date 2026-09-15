@@ -37,6 +37,29 @@ class OpportunityType(str, enum.Enum):
     IGNORE = "IGNORE"
 
 
+class DealStatus(str, enum.Enum):
+    """Adapted from spec section 27's campaign-recipient states, scoped down
+    to what makes sense before campaigns/email-sending exist (spec section
+    58 explicitly defers those): a manual, per-business status the user
+    sets themselves as they work a lead in the real world (sent an email
+    through their own client, got a reply, closed the deal), rather than
+    something a sending/reply-detection system updates automatically."""
+
+    NEW = "NEW"
+    CONTACTED = "CONTACTED"
+    REPLIED = "REPLIED"
+    INTERESTED = "INTERESTED"
+    NOT_INTERESTED = "NOT_INTERESTED"
+    DO_NOT_CONTACT = "DO_NOT_CONTACT"
+    CONVERTED = "CONVERTED"
+
+
+# Terminal states: a lead here is done, one way or another -- excluded from
+# the Hot Deals worklist (app/services/analytics/service.py) regardless of
+# score, since there's nothing left to "work."
+DEAL_STATUS_TERMINAL = {DealStatus.NOT_INTERESTED, DealStatus.DO_NOT_CONTACT, DealStatus.CONVERTED}
+
+
 class Business(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "businesses"
 
@@ -61,6 +84,13 @@ class Business(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
 
+    deal_status: Mapped[DealStatus] = mapped_column(
+        Enum(DealStatus, name="deal_status"), default=DealStatus.NEW, nullable=False
+    )
+    deal_status_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     website: Mapped["Website | None"] = relationship(
         back_populates="business", uselist=False, cascade="all, delete-orphan"
     )
@@ -75,6 +105,11 @@ class Business(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     outreach_draft: Mapped["OutreachDraft | None"] = relationship(
         back_populates="business", uselist=False, cascade="all, delete-orphan"
+    )
+    activities: Mapped[list["DealActivity"]] = relationship(
+        back_populates="business",
+        cascade="all, delete-orphan",
+        order_by="DealActivity.created_at.desc()",
     )
 
 
@@ -176,3 +211,25 @@ class OutreachDraft(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     ai_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     business: Mapped["Business"] = relationship(back_populates="outreach_draft")
+
+
+class DealActivity(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """A timeline entry for a business -- a status change, a free-text
+    note, or both together (e.g. "left a voicemail" + status -> CONTACTED).
+    Spec section 35's "Notes ... Status ... Timeline" for the prospect
+    detail page, scoped to manual entries since there's no
+    campaigns/conversations system generating these automatically yet."""
+
+    __tablename__ = "deal_activities"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE")
+    )
+    status: Mapped[DealStatus | None] = mapped_column(
+        Enum(DealStatus, name="deal_status"), nullable=True
+    )
+    """Set only when this entry represents a status change; null for a
+    plain note logged without changing the business's current status."""
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    business: Mapped["Business"] = relationship(back_populates="activities")

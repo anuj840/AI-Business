@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, ApiError, type AnalyticsSummary, type HotDeal } from "@/lib/api";
-import { OpportunityBadge, PriorityBadge } from "@/components/Badge";
+import { OpportunityBadge, PriorityBadge, DealStatusBadge } from "@/components/Badge";
 import { BreakdownBars, StatTile } from "@/components/StatTile";
 
 const OPPORTUNITY_FILL: Record<string, string> = {
@@ -32,6 +32,25 @@ const PRIORITY_FILL: Record<string, string> = {
 };
 
 const PRIORITY_ORDER = ["HIGH_PRIORITY", "GOOD", "MEDIUM", "LOW"];
+
+const DEAL_STATUS_FILL: Record<string, string> = {
+  NEW: "bg-gray-400",
+  CONTACTED: "bg-blue-500",
+  REPLIED: "bg-indigo-500",
+  INTERESTED: "bg-purple-500",
+  NOT_INTERESTED: "bg-gray-300",
+  DO_NOT_CONTACT: "bg-red-500",
+  CONVERTED: "bg-green-500",
+};
+const DEAL_STATUS_ORDER = [
+  "NEW",
+  "CONTACTED",
+  "REPLIED",
+  "INTERESTED",
+  "CONVERTED",
+  "NOT_INTERESTED",
+  "DO_NOT_CONTACT",
+];
 
 export default function AnalyticsPage() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
@@ -78,6 +97,9 @@ export default function AnalyticsPage() {
   const priorityData = PRIORITY_ORDER.filter(
     (label) => summary.priority_tier_breakdown[label] > 0
   ).map((label) => ({ label, count: summary.priority_tier_breakdown[label] }));
+  const dealStatusData = DEAL_STATUS_ORDER.filter(
+    (label) => summary.deal_status_breakdown[label] > 0
+  ).map((label) => ({ label, count: summary.deal_status_breakdown[label] }));
 
   return (
     <div className="space-y-6">
@@ -105,7 +127,7 @@ export default function AnalyticsPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <section className="rounded-md border border-gray-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Opportunity type
@@ -135,6 +157,18 @@ export default function AnalyticsPage() {
             <BreakdownBars data={priorityData} colorClass={(l) => PRIORITY_FILL[l] ?? "bg-gray-400"} />
           </div>
         </section>
+
+        <section className="rounded-md border border-gray-200 bg-white p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Deal status
+          </h2>
+          <div className="mt-4">
+            <BreakdownBars
+              data={dealStatusData}
+              colorClass={(l) => DEAL_STATUS_FILL[l] ?? "bg-gray-400"}
+            />
+          </div>
+        </section>
       </div>
 
       <section>
@@ -150,13 +184,14 @@ export default function AnalyticsPage() {
             businesses that don&apos;t have it yet.
           </div>
         ) : (
-          <div className="mt-4 overflow-hidden rounded-md border border-gray-200 bg-white">
+          <div className="mt-4 overflow-x-auto rounded-md border border-gray-200 bg-white">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Score</th>
                   <th className="px-4 py-3">Priority</th>
+                  <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Opportunity</th>
                   <th className="px-4 py-3">Domain Age</th>
                   <th className="px-4 py-3">Service</th>
@@ -180,6 +215,9 @@ export default function AnalyticsPage() {
                     <td className="px-4 py-3 font-medium text-gray-700">{deal.lead_score}</td>
                     <td className="px-4 py-3">
                       <PriorityBadge priority={deal.priority} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <DealStatusBadge status={deal.deal_status} />
                     </td>
                     <td className="px-4 py-3">
                       <OpportunityBadge type={deal.opportunity_type} />

@@ -163,6 +163,23 @@ was `IGNORE` and no draft was generated).
 Marks the draft as human-approved. **No send capability exists in this codebase
 yet** — approval only flips a flag for the future outreach/email phase to key off.
 
+## Deal tracking
+
+See `DEAL_TRACKING.md` for the full design.
+
+### `PATCH /api/businesses/{id}/status`
+
+`{"status": "CONTACTED"}` — one of `NEW, CONTACTED, REPLIED, INTERESTED,
+NOT_INTERESTED, DO_NOT_CONTACT, CONVERTED`. Always logs a timeline entry too.
+
+### `POST /api/businesses/{id}/activity`
+
+`{"note": "...", "status": "..."}` — either field alone, or both together.
+
+### `GET /api/businesses/{id}/activity`
+
+Timeline, newest first.
+
 ## Errors
 
 Standard FastAPI/Pydantic validation errors (422) for bad request bodies; `404`

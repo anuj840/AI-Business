@@ -9,6 +9,10 @@
                                    check, no AI -- see CONTACT.md
   POST /api/businesses/{id}/analyze   enqueue the full pipeline as a background job (spec section 39)
   GET  /api/businesses/{id}/analysis  fetch the persisted result of the last completed run
+  PATCH /api/businesses/{id}/status   update the deal status (spec section 27, scoped down --
+                                   see DealStatus's docstring for why this is manual)
+  POST  /api/businesses/{id}/activity  log a timeline note, optionally with a status change
+  GET   /api/businesses/{id}/activity  fetch the timeline, newest first
 
 /analyze returns {"job_id", "status": "queued"} immediately -- the actual
 crawl/AI work runs in the ARQ worker process (app/worker/), not this
@@ -18,6 +22,7 @@ it's COMPLETED.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
@@ -29,6 +34,8 @@ from app.core.queue import get_arq_pool
 from app.models.business import (
     Audit,
     Business,
+    DealActivity,
+    DealStatus,
     LeadScore,
     Opportunity,
     OutreachDraft,
@@ -40,6 +47,9 @@ from app.schemas.business import (
     BusinessCreate,
     BusinessListItemOut,
     BusinessOut,
+    DealActivityCreate,
+    DealActivityOut,
+    DealStatusUpdate,
     PaginatedBusinessesOut,
     PipelineResultOut,
 )
@@ -243,3 +253,79 @@ async def analyze_business(business_id: uuid.UUID, db: AsyncSession = Depends(ge
         ) from exc
 
     return {"job_id": str(job.id), "status": job.status.value}
+
+
+@router.patch("/{business_id}/status", response_model=BusinessOut)
+async def update_deal_status(
+    business_id: uuid.UUID, payload: DealStatusUpdate, db: AsyncSession = Depends(get_db)
+):
+    business = await db.get(Business, business_id)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+
+    try:
+        new_status = DealStatus(payload.status)
+    except ValueError:
+        valid = ", ".join(s.value for s in DealStatus)
+        raise HTTPException(
+            status_code=422, detail=f"Invalid status {payload.status!r}. Valid values: {valid}"
+        ) from None
+
+    business.deal_status = new_status
+    business.deal_status_updated_at = datetime.now(timezone.utc)
+    db.add(business)
+
+    # The status change itself is worth a timeline entry even without an
+    # accompanying note, so the activity feed is a complete record of every
+    # status transition, not just the ones a human happened to annotate.
+    db.add(DealActivity(business_id=business.id, status=new_status, note=None))
+
+    await db.commit()
+    await db.refresh(business)
+    return business
+
+
+@router.post("/{business_id}/activity", response_model=DealActivityOut, status_code=201)
+async def add_deal_activity(
+    business_id: uuid.UUID, payload: DealActivityCreate, db: AsyncSession = Depends(get_db)
+):
+    business = await db.get(Business, business_id)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+
+    new_status = None
+    if payload.status is not None:
+        try:
+            new_status = DealStatus(payload.status)
+        except ValueError:
+            valid = ", ".join(s.value for s in DealStatus)
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid status {payload.status!r}. Valid values: {valid}",
+            ) from None
+        business.deal_status = new_status
+        business.deal_status_updated_at = datetime.now(timezone.utc)
+        db.add(business)
+
+    if not payload.note and new_status is None:
+        raise HTTPException(status_code=422, detail="Provide a note, a status, or both.")
+
+    activity = DealActivity(business_id=business.id, status=new_status, note=payload.note)
+    db.add(activity)
+    await db.commit()
+    await db.refresh(activity)
+    return activity
+
+
+@router.get("/{business_id}/activity", response_model=list[DealActivityOut])
+async def list_deal_activity(business_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    business = await db.get(Business, business_id)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+
+    rows = await db.execute(
+        select(DealActivity)
+        .where(DealActivity.business_id == business_id)
+        .order_by(DealActivity.created_at.desc())
+    )
+    return rows.scalars().all()

@@ -35,6 +35,28 @@ class BusinessOut(BaseModel):
     created_at: datetime
     source_name: str | None = None
     discovered_at: datetime | None = None
+    deal_status: str = "NEW"
+    deal_status_updated_at: datetime | None = None
+
+
+class DealStatusUpdate(BaseModel):
+    status: str = Field(..., description="One of DealStatus's values, e.g. 'CONTACTED'")
+
+
+class DealActivityCreate(BaseModel):
+    note: str | None = Field(None, max_length=4000)
+    status: str | None = Field(
+        None, description="Optional -- set this alongside a note to also change status"
+    )
+
+
+class DealActivityOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    status: str | None
+    note: str | None
+    created_at: datetime
 
 
 class BusinessListItemOut(BusinessOut):

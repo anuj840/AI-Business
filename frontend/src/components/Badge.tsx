@@ -29,6 +29,16 @@ const PRIORITY_STYLES: Record<string, string> = {
   LOW: "bg-gray-50 text-gray-500 ring-gray-400/20",
 };
 
+const DEAL_STATUS_STYLES: Record<string, string> = {
+  NEW: "bg-gray-50 text-gray-600 ring-gray-400/20",
+  CONTACTED: "bg-blue-50 text-blue-700 ring-blue-600/20",
+  REPLIED: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
+  INTERESTED: "bg-purple-50 text-purple-700 ring-purple-600/20",
+  NOT_INTERESTED: "bg-gray-100 text-gray-500 ring-gray-400/20",
+  DO_NOT_CONTACT: "bg-red-50 text-red-700 ring-red-600/20",
+  CONVERTED: "bg-green-50 text-green-700 ring-green-600/20",
+};
+
 function Badge({
   label,
   className,
@@ -74,6 +84,15 @@ export function PriorityBadge({ priority }: { priority: string }) {
     <Badge
       label={priority}
       className={PRIORITY_STYLES[priority] ?? "bg-gray-50 text-gray-700 ring-gray-600/20"}
+    />
+  );
+}
+
+export function DealStatusBadge({ status }: { status: string }) {
+  return (
+    <Badge
+      label={status}
+      className={DEAL_STATUS_STYLES[status] ?? "bg-gray-50 text-gray-700 ring-gray-600/20"}
     />
   );
 }

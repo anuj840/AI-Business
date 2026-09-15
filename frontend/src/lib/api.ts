@@ -57,6 +57,34 @@ export interface Business {
   /** Only populated on the list endpoint (GET /api/businesses), which joins
    * Website; the single-business fetch doesn't include it. */
   domain_age_years?: number | null;
+  deal_status: DealStatus;
+  deal_status_updated_at: string | null;
+}
+
+export type DealStatus =
+  | "NEW"
+  | "CONTACTED"
+  | "REPLIED"
+  | "INTERESTED"
+  | "NOT_INTERESTED"
+  | "DO_NOT_CONTACT"
+  | "CONVERTED";
+
+export const DEAL_STATUSES: DealStatus[] = [
+  "NEW",
+  "CONTACTED",
+  "REPLIED",
+  "INTERESTED",
+  "NOT_INTERESTED",
+  "DO_NOT_CONTACT",
+  "CONVERTED",
+];
+
+export interface DealActivity {
+  id: string;
+  status: DealStatus | null;
+  note: string | null;
+  created_at: string;
 }
 
 export interface PaginatedBusinesses {
@@ -179,6 +207,7 @@ export interface AnalyticsSummary {
   reachable: number;
   website_status_breakdown: Record<string, number>;
   opportunity_breakdown: Record<string, number>;
+  deal_status_breakdown: Record<string, number>;
   priority_tier_breakdown: Record<string, number>;
   source_breakdown: Record<string, number>;
   outreach_drafts_total: number;
@@ -195,6 +224,7 @@ export interface HotDeal {
   phone: string | null;
   email: string | null;
   domain_age_years: number | null;
+  deal_status: DealStatus;
   lead_score: number;
   priority: "HIGH_PRIORITY" | "GOOD" | "MEDIUM" | "LOW";
   opportunity_type: string;
@@ -248,4 +278,16 @@ export const api = {
   getAnalyticsSummary: () => request<AnalyticsSummary>("/api/analytics/summary"),
   getHotDeals: (limit = 20) =>
     request<HotDeal[]>(`/api/analytics/hot-deals?limit=${limit}`),
+  updateDealStatus: (id: string, status: DealStatus) =>
+    request<Business>(`/api/businesses/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  addDealActivity: (id: string, payload: { note?: string; status?: DealStatus }) =>
+    request<DealActivity>(`/api/businesses/${id}/activity`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getDealActivity: (id: string) =>
+    request<DealActivity[]>(`/api/businesses/${id}/activity`),
 };

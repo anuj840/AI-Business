@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.business import (
+    DEAL_STATUS_TERMINAL,
     Business,
     LeadScore,
     Opportunity,
@@ -43,6 +44,11 @@ async def get_analytics_summary(db: AsyncSession) -> dict:
         )
     )
     opportunity_breakdown = {row[0].value: row[1] for row in opportunity_rows}
+
+    deal_status_rows = await db.execute(
+        select(Business.deal_status, func.count(Business.id)).group_by(Business.deal_status)
+    )
+    deal_status_breakdown = {row[0].value: row[1] for row in deal_status_rows}
 
     reachable_count = await db.scalar(
         select(func.count(Business.id)).where(
@@ -83,6 +89,7 @@ async def get_analytics_summary(db: AsyncSession) -> dict:
         "reachable": reachable_count or 0,
         "website_status_breakdown": website_status_breakdown,
         "opportunity_breakdown": opportunity_breakdown,
+        "deal_status_breakdown": deal_status_breakdown,
         "priority_tier_breakdown": tier_breakdown,
         "source_breakdown": source_breakdown,
         "outreach_drafts_total": total_drafts or 0,
@@ -94,9 +101,11 @@ async def get_analytics_summary(db: AsyncSession) -> dict:
 
 async def get_hot_deals(db: AsyncSession, limit: int = 20) -> list[dict]:
     """The leads most worth working right now: real opportunity (not
-    IGNORE), a lead score on file, reachable by phone or email, and not
-    already approved for outreach (i.e. still actionable) -- sorted by
-    lead score descending."""
+    IGNORE), a lead score on file, reachable by phone or email, not
+    already approved for outreach (i.e. still actionable), and not already
+    at a terminal deal status (converted / not interested / do-not-contact
+    -- there's nothing left to "work" there regardless of score) --
+    sorted by lead score descending."""
     stmt = (
         select(Business, LeadScore, Opportunity, OutreachDraft, Website.domain_age_years)
         .join(LeadScore, LeadScore.business_id == Business.id)
@@ -106,6 +115,7 @@ async def get_hot_deals(db: AsyncSession, limit: int = 20) -> list[dict]:
         .where(Opportunity.opportunity_type != OpportunityType.IGNORE)
         .where((Business.phone.is_not(None)) | (Business.email.is_not(None)))
         .where((OutreachDraft.approved.is_(False)) | (OutreachDraft.id.is_(None)))
+        .where(Business.deal_status.not_in(DEAL_STATUS_TERMINAL))
         .order_by(LeadScore.overall_score.desc())
         .limit(limit)
     )
@@ -122,6 +132,7 @@ async def get_hot_deals(db: AsyncSession, limit: int = 20) -> list[dict]:
                 "phone": business.phone,
                 "email": business.email,
                 "domain_age_years": domain_age_years,
+                "deal_status": business.deal_status.value,
                 "lead_score": lead_score.overall_score,
                 "priority": priority_label(lead_score.overall_score),
                 "opportunity_type": opportunity.opportunity_type.value,

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, type PaginatedBusinesses, ApiError } from "@/lib/api";
+import { DealStatusBadge } from "@/components/Badge";
 
 const PAGE_SIZE = 25;
 
@@ -87,6 +88,7 @@ export default function DashboardPage() {
 
       {data && data.total > 0 && (
         <div className={`overflow-hidden rounded-md border border-gray-200 bg-white ${loading ? "opacity-50" : ""}`}>
+          <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
               <tr>
@@ -96,6 +98,7 @@ export default function DashboardPage() {
                 <th className="px-4 py-3">Website</th>
                 <th className="px-4 py-3">Domain Age</th>
                 <th className="px-4 py-3">Contact</th>
+                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Added</th>
               </tr>
             </thead>
@@ -148,6 +151,9 @@ export default function DashboardPage() {
                       </span>
                     )}
                   </td>
+                  <td className="px-4 py-3">
+                    <DealStatusBadge status={b.deal_status} />
+                  </td>
                   <td className="px-4 py-3 text-gray-400">
                     {new Date(b.created_at).toLocaleDateString()}
                   </td>
@@ -155,6 +161,7 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
+          </div>
 
           {data.total_pages > 1 && (
             <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-500">

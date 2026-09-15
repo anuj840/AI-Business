@@ -15,6 +15,15 @@ businesses
   submitted_website_url
   notes
   source_name, source_ref, discovered_at  -- set for discovery-engine results, null for manual entry
+  deal_status       (NEW | CONTACTED | REPLIED | INTERESTED | NOT_INTERESTED | DO_NOT_CONTACT | CONVERTED)
+  deal_status_updated_at
+  created_at, updated_at
+
+deal_activities     (N:1 with businesses -- a timeline)
+  id (uuid, pk)
+  business_id (fk -> businesses)
+  status (nullable)  -- set when this entry represents a status change
+  note (nullable)
   created_at, updated_at
 
 websites            (1:1 with businesses)
