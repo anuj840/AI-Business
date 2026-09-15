@@ -46,6 +46,14 @@ class BusinessListItemOut(BusinessOut):
     domain_age_years: float | None = None
 
 
+class PaginatedBusinessesOut(BaseModel):
+    items: list[BusinessListItemOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 class PipelineResultOut(BaseModel):
     business: BusinessOut
     website_status: str

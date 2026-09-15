@@ -22,7 +22,12 @@ from app.models.business import Business
 from app.services.contact.finder import quick_contact_check
 from app.services.discovery.dedup import is_duplicate
 from app.services.discovery.osm_provider import OpenStreetMapProvider
-from app.services.discovery.provider import DiscoveredBusiness, DiscoveryCriteria
+from app.services.discovery.provider import (
+    DiscoveredBusiness,
+    DiscoveryCriteria,
+    LeadSourceProvider,
+)
+from app.services.discovery.utils import parse_csv_list
 
 logger = get_logger(__name__)
 
@@ -30,12 +35,50 @@ CONTACT_CHECK_CONCURRENCY = 5
 CONTACT_CHECK_MAX_PER_RUN = 30
 """Caps worst-case added latency for a single discovery run -- if more than
 this many results need a check, the rest are left for an on-demand or
-future run rather than making one discovery call open-ended in duration."""
+future run rather than making one discovery call even longer."""
+
+MAX_CITIES_PER_RUN = 10
+"""Bounds worst-case duration: each city is a separate geocode + Overpass
+call, run sequentially against the same free/keyless source that has real
+rate limits (see osm_provider.py's last_error handling)."""
+
+
+async def _discover_across_cities(
+    provider: LeadSourceProvider, criteria: DiscoveryCriteria
+) -> tuple[list[DiscoveredBusiness], list[str]]:
+    """Targeting several cities in one discovery run: 'Houston, Austin,
+    Dallas' becomes one candidate list, one dedup pass, one persist -- the
+    same "several targets, one call" idea as the existing multi-industry
+    support, just across the other axis (place instead of category).
+    `max_results` applies per city, not to the combined total (documented
+    in the API request schema) -- keeping each city's own Overpass query
+    the same size as a single-city request, rather than silently shrinking
+    per-city results as more cities are added.
+    """
+    cities = parse_csv_list(criteria.city or "")[:MAX_CITIES_PER_RUN] or [None]
+
+    all_candidates: list[DiscoveredBusiness] = []
+    errors: list[str] = []
+
+    for city in cities:
+        city_criteria = DiscoveryCriteria(
+            country=criteria.country,
+            region=criteria.region,
+            city=city,
+            industry=criteria.industry,
+            max_results=criteria.max_results,
+        )
+        results = await provider.discover(city_criteria)
+        all_candidates.extend(results)
+        if provider.last_error:
+            errors.append(f"{city or criteria.region or criteria.country}: {provider.last_error}")
+
+    return all_candidates, errors
 
 
 async def run_discovery(db: AsyncSession, criteria: DiscoveryCriteria) -> dict:
     provider = OpenStreetMapProvider()
-    candidates = await provider.discover(criteria)
+    candidates, source_errors = await _discover_across_cities(provider, criteria)
 
     existing_rows = await db.execute(select(Business.name, Business.city, Business.phone))
     existing = [(row.name, row.city, row.phone) for row in existing_rows]
@@ -72,13 +115,15 @@ async def run_discovery(db: AsyncSession, criteria: DiscoveryCriteria) -> dict:
 
     contact_checked = await _check_contacts_for_missing(db, created)
 
+    combined_error = "; ".join(source_errors) if source_errors else None
+
     logger.info(
         "discovery.run_complete",
         found=len(candidates),
         created=len(created),
         skipped_duplicates=skipped_duplicates,
         contact_checked=contact_checked,
-        source_error=provider.last_error,
+        source_error=combined_error,
     )
 
     return {
@@ -86,7 +131,7 @@ async def run_discovery(db: AsyncSession, criteria: DiscoveryCriteria) -> dict:
         "created": len(created),
         "skipped_duplicates": skipped_duplicates,
         "businesses": created,
-        "source_error": provider.last_error,
+        "source_error": combined_error,
     }
 
 

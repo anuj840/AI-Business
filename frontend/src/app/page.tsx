@@ -2,18 +2,26 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, type Business, ApiError } from "@/lib/api";
+import { api, type PaginatedBusinesses, ApiError } from "@/lib/api";
+
+const PAGE_SIZE = 25;
 
 export default function DashboardPage() {
-  const [businesses, setBusinesses] = useState<Business[] | null>(null);
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<PaginatedBusinesses | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Derived rather than a separate setState call in the effect below: the
+  // page we're showing data for hasn't caught up to the requested page
+  // while a fetch for the new page is in flight.
+  const loading = data === null || data.page !== page;
 
   useEffect(() => {
     let cancelled = false;
     api
-      .listBusinesses()
-      .then((data) => {
-        if (!cancelled) setBusinesses(data);
+      .listBusinesses(page, PAGE_SIZE)
+      .then((result) => {
+        if (!cancelled) setData(result);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -23,12 +31,23 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [page]);
+
+  // Deliberately shows the previous page's items (dimmed via the `loading`
+  // flag below) while a new page loads, rather than flashing empty.
+  const businesses = data?.items ?? [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Prospect Dashboard</h1>
+        <h1 className="text-2xl font-semibold">
+          Prospect Dashboard
+          {data && data.total > 0 && (
+            <span className="ml-2 text-base font-normal text-gray-400">
+              ({data.total} total)
+            </span>
+          )}
+        </h1>
         <Link
           href="/businesses/new"
           className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
@@ -44,13 +63,13 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!businesses && !error && (
+      {loading && !data && (
         <div className="rounded-md border border-gray-200 bg-white p-6 text-sm text-gray-500">
           Loading businesses…
         </div>
       )}
 
-      {businesses && businesses.length === 0 && (
+      {data && data.total === 0 && (
         <div className="rounded-md border border-dashed border-gray-300 bg-white p-10 text-center">
           <p className="text-gray-600">No businesses yet.</p>
           <p className="mt-1 text-sm text-gray-400">
@@ -66,8 +85,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {businesses && businesses.length > 0 && (
-        <div className="overflow-hidden rounded-md border border-gray-200 bg-white">
+      {data && data.total > 0 && (
+        <div className={`overflow-hidden rounded-md border border-gray-200 bg-white ${loading ? "opacity-50" : ""}`}>
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
               <tr>
@@ -136,6 +155,30 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
+
+          {data.total_pages > 1 && (
+            <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-500">
+              <span>
+                Page {data.page} of {data.total_pages}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1 || loading}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(data.total_pages, p + 1))}
+                  disabled={page >= data.total_pages || loading}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

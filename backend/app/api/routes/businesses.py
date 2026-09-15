@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
@@ -36,7 +36,13 @@ from app.models.business import (
     WebsiteAnalysis,
 )
 from app.models.job import Job, JobType
-from app.schemas.business import BusinessCreate, BusinessListItemOut, BusinessOut, PipelineResultOut
+from app.schemas.business import (
+    BusinessCreate,
+    BusinessListItemOut,
+    BusinessOut,
+    PaginatedBusinessesOut,
+    PipelineResultOut,
+)
 from app.services.contact.finder import quick_contact_check
 
 logger = get_logger(__name__)
@@ -114,19 +120,31 @@ async def find_contact(business_id: uuid.UUID, db: AsyncSession = Depends(get_db
     }
 
 
-@router.get("", response_model=list[BusinessListItemOut])
-async def list_businesses(db: AsyncSession = Depends(get_db)):
+@router.get("", response_model=PaginatedBusinessesOut)
+async def list_businesses(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    total = await db.scalar(select(func.count(Business.id))) or 0
+    total_pages = max(1, (total + page_size - 1) // page_size)
+
     rows = await db.execute(
         select(Business, Website.domain_age_years)
         .outerjoin(Website, Website.business_id == Business.id)
         .order_by(Business.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
-    return [
+    items = [
         BusinessListItemOut.model_validate(business, from_attributes=True).model_copy(
             update={"domain_age_years": domain_age_years}
         )
         for business, domain_age_years in rows.all()
     ]
+    return PaginatedBusinessesOut(
+        items=items, total=total, page=page, page_size=page_size, total_pages=total_pages
+    )
 
 
 @router.get("/{business_id}", response_model=BusinessOut)

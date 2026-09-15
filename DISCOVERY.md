@@ -81,7 +81,7 @@ businesses found" when the real story is "try again in a minute."
 
 ## Getting bulk volume without a paid API or scraping
 
-Two knobs, both free and zero-signup, that multiply how many real
+Three knobs, all free and zero-signup, that multiply how many real
 businesses a single call returns:
 
 1. **Omit `city`.** `DiscoveryCriteria.city` is optional -- if you pass only
@@ -97,11 +97,24 @@ businesses a single call returns:
    via `label_from_osm_tags`), not the combined search string -- so a
    roofer found this way still shows `industry: "Roofer"`, not
    `"Roofing, Plumbing, Electrician"`.
+3. **List multiple cities, comma-separated.** `city="Houston, Austin,
+   Dallas"` (max 10) runs one geocode + Overpass call per city and merges
+   the results into a single dedup/persist pass --
+   `app/services/discovery/service.py`'s `_discover_across_cities`. Same
+   "several targets, one call" idea as multi-industry, just across the
+   place axis instead of category. `max_results` applies **per city**, not
+   to the combined total -- a 3-city, `max_results=20` request can return
+   up to 60 businesses, not capped at 20 total. One city's Overpass call
+   failing (e.g. rate-limited) doesn't lose the other cities' results;
+   `source_error` reports which city failed.
 
 Verified live: one call for `region=Colorado, industry="Roofing, Plumbing,
 Electrician", max_results=30` returned 30 real businesses (11 roofers, 11
 plumbers, 8 electricians) across multiple Colorado cities in 14.6 seconds.
-`max_results` ceiling raised from 50 to 200 accordingly.
+`max_results` ceiling raised from 50 to 200 accordingly. Separately, one
+call for `city="Manchester, Birmingham, Leeds", industry="Dental"`
+returned real dental practices across all three UK cities in a single
+request.
 
 What this does *not* solve: OSM's per-listing detail sparsity (a result
 found this way can still lack phone/email/website if no one tagged it --

@@ -59,6 +59,14 @@ export interface Business {
   domain_age_years?: number | null;
 }
 
+export interface PaginatedBusinesses {
+  items: Business[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export interface BusinessCreate {
   name: string;
   website_url?: string;
@@ -206,7 +214,8 @@ export interface DiscoveryResult {
 // --- API calls ---
 
 export const api = {
-  listBusinesses: () => request<Business[]>("/api/businesses"),
+  listBusinesses: (page = 1, pageSize = 25) =>
+    request<PaginatedBusinesses>(`/api/businesses?page=${page}&page_size=${pageSize}`),
   getBusiness: (id: string) => request<Business>(`/api/businesses/${id}`),
   createBusiness: (payload: BusinessCreate) =>
     request<Business>("/api/businesses", {

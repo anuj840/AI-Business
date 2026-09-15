@@ -12,6 +12,8 @@ precisely -- do not try to enumerate all of OSM's taxonomy up front.
 """
 from __future__ import annotations
 
+from app.services.discovery.utils import parse_csv_list
+
 # label (lowercased, matched by substring) -> list of (osm_key, osm_value)
 INDUSTRY_TAG_MAP: dict[str, list[tuple[str, str]]] = {
     "roofing": [("craft", "roofer")],
@@ -72,7 +74,7 @@ def resolve_tags(industry: str) -> list[tuple[str, str]] | None:
 def split_industries(industry_field: str) -> list[str]:
     """Splits a comma-separated industry field into individual terms,
     e.g. "Roofing, Plumbing, HVAC" -> ["Roofing", "Plumbing", "HVAC"]."""
-    return [term.strip() for term in industry_field.split(",") if term.strip()]
+    return parse_csv_list(industry_field)
 
 
 def label_from_osm_tags(tags: dict) -> str | None:

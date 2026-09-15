@@ -41,7 +41,18 @@ Returns `201` with the created `BusinessOut`.
 
 ### `GET /api/businesses`
 
-List all businesses, newest first.
+Paginated, newest first. Query params: `page` (default 1), `page_size`
+(default 25, max 100).
+
+```json
+{
+  "items": [ /* BusinessListItemOut[], includes domain_age_years */ ],
+  "total": 86,
+  "page": 1,
+  "page_size": 25,
+  "total_pages": 4
+}
+```
 
 ### `GET /api/businesses/{id}`
 
